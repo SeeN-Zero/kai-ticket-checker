@@ -45,3 +45,5 @@ nb-configuration.xml
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
+/.playwright-profile-A/
+/.playwright-profile-B/

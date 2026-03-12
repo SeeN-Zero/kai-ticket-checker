@@ -68,10 +68,25 @@ public class KaiService {
     @ConfigProperty(name = "kai.alert.max-price-rupiah", defaultValue = "500000")
     int maxAlertPriceRupiah;
 
+    @ConfigProperty(name = "kai.schedule.start-day", defaultValue = "25")
+    int startDay;
+
+    @ConfigProperty(name = "kai.schedule.end-day", defaultValue = "30")
+    int endDay;
+
     public void checkTicket() {
         try (Playwright playwright = Playwright.create()) {
             Destination origination = parseOrigination(originationConfig);
             List<Destination> destinations = parseDestinations(destinationsConfig);
+            int loopStartDay = normalizeDay(startDay);
+            int loopEndDay = normalizeDay(endDay);
+            if (loopEndDay < loopStartDay) {
+                LOG.warnf("Rentang hari tidak valid (start=%d, end=%d). Menukar nilainya otomatis.",
+                        loopStartDay, loopEndDay);
+                int temp = loopStartDay;
+                loopStartDay = loopEndDay;
+                loopEndDay = temp;
+            }
             Path profileDir = Paths.get(userDataDir).toAbsolutePath();
             try (BrowserContext context = playwright.chromium().launchPersistentContext(
                     profileDir,
@@ -94,7 +109,7 @@ public class KaiService {
                 Page page = context.pages().isEmpty() ? context.newPage() : context.pages().getFirst();
                 page.setDefaultTimeout(30000);
 
-                for (int day = 25; day <= 30; day++) {
+                for (int day = loopStartDay; day <= loopEndDay; day++) {
                     for (Destination destination : destinations) {
                         String date = day + "-Maret-2026";
                         String url = buildKaiUrl(date, origination, destination);
@@ -436,6 +451,18 @@ public class KaiService {
 
     private String formatRupiah(int value) {
         return String.format(Locale.forLanguageTag("id-ID"), "%,d", value).replace(',', '.');
+    }
+
+    private int normalizeDay(int day) {
+        if (day < 1) {
+            LOG.warnf("Nilai hari %d terlalu kecil, memakai 1.", day);
+            return 1;
+        }
+        if (day > 31) {
+            LOG.warnf("Nilai hari %d terlalu besar, memakai 31.", day);
+            return 31;
+        }
+        return day;
     }
 
     private String extractFirstText(Element root, String... selectors) {
