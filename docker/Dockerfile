@@ -1,5 +1,6 @@
 ARG BASE_IMAGE=kai-ticket-checker-base:latest
 FROM ${BASE_IMAGE}
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 WORKDIR /app
 

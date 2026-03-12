@@ -1,6 +1,7 @@
 FROM maven:3.9.11-eclipse-temurin-21
 
 ARG PLAYWRIGHT_VERSION=1.42.0
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Install Linux dependencies for Chromium on Ubuntu 24.04 (noble).
 RUN apt-get update && apt-get install -y --no-install-recommends \
