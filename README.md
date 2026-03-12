@@ -34,6 +34,46 @@ Run hasil build:
 java -jar target/kai-ticket-checker-1.0-SNAPSHOT-runner.jar
 ```
 
+## Docker
+
+Build base image (sekali saja, kecuali ada perubahan dependency/browser):
+
+```bash
+docker build -f docker/base/Dockerfile -t kai-ticket-checker-base:latest .
+```
+
+Build app image di atas base image:
+
+```bash
+docker build -f docker/Dockerfile --build-arg BASE_IMAGE=kai-ticket-checker-base:latest -t kai-ticket-checker:latest .
+```
+
+Run 2 container sekaligus (A dan B) via Compose (otomatis pakai base image di atas):
+
+```bash
+docker compose -f docker/docker-compose.yml up -d --build
+```
+
+`docker/docker-compose.yml` sudah menyiapkan:
+- `kai-checker-a`: tanggal 25-30, `KM -> PSE/GMR`.
+- `kai-checker-b`: tanggal 15-19, `PSE -> KM`.
+- profile Playwright terpisah (`/profiles/a` dan `/profiles/b`) agar tidak bentrok.
+- build arg `BASE_IMAGE` diambil dari env `KAI_BASE_IMAGE` (default: `kai-ticket-checker-base:latest`).
+
+Sebelum `docker compose -f docker/docker-compose.yml up`, set env host:
+
+```bash
+export KAI_TELEGRAM_BOT_TOKEN=your_bot_token
+export KAI_TELEGRAM_CHAT_ID=your_chat_id
+```
+
+PowerShell:
+
+```powershell
+$env:KAI_TELEGRAM_BOT_TOKEN="your_bot_token"
+$env:KAI_TELEGRAM_CHAT_ID="your_chat_id"
+```
+
 ## Konfigurasi
 
 Semua credential disimpan via properti konfigurasi atau environment variable.
