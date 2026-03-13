@@ -43,8 +43,8 @@ services:
       KAI_ROUTE_DESTINATIONS: "KM:KEBUMEN"
       KAI_ALERT_MAX_PRICE_RUPIAH: "600000"
       KAI_PLAYWRIGHT_USER_DATA_DIR: "/profiles/b"
-      KAI_TELEGRAM_BOT_TOKEN: "8680948196:AAH1dxKnssJJdVfqGw7megFLWR7kpXI4gDs"
-      KAI_TELEGRAM_CHAT_ID: "1864929340"
+      KAI_TELEGRAM_BOT_TOKEN: "${KAI_TELEGRAM_BOT_TOKEN}"
+      KAI_TELEGRAM_CHAT_ID: "${KAI_TELEGRAM_CHAT_ID}"
     volumes:
       - kai-profile-b:/profiles/b
       - kai-playwright-browsers:/ms-playwright
