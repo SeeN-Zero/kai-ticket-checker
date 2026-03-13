@@ -11,7 +11,7 @@ services:
     container_name: kai-checker-a
     environment:
       QUARKUS_HTTP_PORT: "8081"
-      KAI_PLAYWRIGHT_HEADLESS: "true"
+      KAI_PLAYWRIGHT_HEADLESS: "false"
       PLAYWRIGHT_BROWSERS_PATH: "/ms-playwright"
       KAI_SCHEDULE_START_DAY: "25"
       KAI_SCHEDULE_END_DAY: "30"
@@ -22,6 +22,7 @@ services:
       KAI_TELEGRAM_CHAT_ID: "${KAI_TELEGRAM_CHAT_ID}"
     volumes:
       - kai-profile-a:/profiles/a
+      - kai-playwright-browsers:/ms-playwright
     ports:
       - "8081:8081"
     restart: unless-stopped
@@ -33,7 +34,7 @@ services:
       - kai-checker-a
     environment:
       QUARKUS_HTTP_PORT: "8082"
-      KAI_PLAYWRIGHT_HEADLESS: "true"
+      KAI_PLAYWRIGHT_HEADLESS: "false"
       PLAYWRIGHT_BROWSERS_PATH: "/ms-playwright"
       KAI_SCHEDULE_START_DAY: "15"
       KAI_SCHEDULE_END_DAY: "19"
@@ -44,6 +45,7 @@ services:
       KAI_TELEGRAM_CHAT_ID: "${KAI_TELEGRAM_CHAT_ID}"
     volumes:
       - kai-profile-b:/profiles/b
+      - kai-playwright-browsers:/ms-playwright
     ports:
       - "8082:8082"
     restart: unless-stopped
@@ -51,3 +53,4 @@ services:
 volumes:
   kai-profile-a:
   kai-profile-b:
+  kai-playwright-browsers:

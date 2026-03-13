@@ -2,6 +2,7 @@ FROM maven:3.9.11-eclipse-temurin-21
 
 ARG PLAYWRIGHT_VERSION=1.42.0
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN mkdir -p /ms-playwright && chmod 777 /ms-playwright
 
 # Install Linux dependencies for Chromium on Ubuntu 24.04 (noble).
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,11 +12,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
     libatspi2.0-0 \
+    libxcursor1 \
+    libgtk-3-0 \
     libcups2 \
     libdbus-1-3 \
     libdrm2 \
     libgbm1 \
     libglib2.0-0 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libcairo-gobject2 \
+    libgdk-pixbuf-2.0-0 \
+    libflite1 \
+    libgles2 \
+    libx264-dev \
     libnspr4 \
     libnss3 \
     libx11-6 \
@@ -27,6 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxfixes3 \
     libxkbcommon0 \
     libxrandr2 \
+    xvfb \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
