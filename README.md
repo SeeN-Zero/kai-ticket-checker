@@ -109,6 +109,20 @@ export KAI_TELEGRAM_CHAT_ID="your_chat_id"
 ./mvnw quarkus:dev
 ```
 
+Contoh ubah interval scheduler ke 15 menit:
+
+```bash
+export KAI_SCHEDULER_EVERY="15m"
+./mvnw quarkus:dev
+```
+
+PowerShell:
+
+```powershell
+$env:KAI_SCHEDULER_EVERY="15m"
+./mvnw quarkus:dev
+```
+
 ## Endpoint
 
 - `GET /check`: jalankan pengecekan tiket secara manual.
