@@ -47,3 +47,4 @@ nb-configuration.xml
 .certs/
 /.playwright-profile-A/
 /.playwright-profile-B/
+/.tmp/

@@ -1,60 +1,33 @@
 name: kai-ticket-checker
 
 services:
-  kai-checker-a:
+  kai-ticket-checker:
     build:
       context: ..
       dockerfile: docker/Dockerfile
       args:
         BASE_IMAGE: "${KAI_BASE_IMAGE:-kai-ticket-checker-base:latest}"
     image: kai-ticket-checker:latest
-    container_name: kai-checker-a
+    container_name: kai-ticket-checker
     environment:
-      QUARKUS_HTTP_PORT: "8081"
-      KAI_PLAYWRIGHT_HEADLESS: "false"
+      QUARKUS_HTTP_PORT: "8080"
+      KAI_PLAYWRIGHT_HEADLESS: "${KAI_PLAYWRIGHT_HEADLESS:-false}"
       PLAYWRIGHT_BROWSERS_PATH: "/ms-playwright"
-      KAI_SCHEDULE_START_DAY: "25"
-      KAI_SCHEDULE_END_DAY: "30"
-      KAI_SCHEDULER_EVERY: "30m"
-      KAI_ROUTE_ORIGINATION: "KM:KEBUMEN"
-      KAI_ROUTE_DESTINATIONS: "PSE:PASARSENEN,GMR:GAMBIR"
-      KAI_ALERT_MAX_PRICE_RUPIAH: "500000"
-      KAI_PLAYWRIGHT_USER_DATA_DIR: "/profiles/a"
+      KAI_PLAYWRIGHT_USER_DATA_DIR: "/profiles/default"
       KAI_TELEGRAM_BOT_TOKEN: "${KAI_TELEGRAM_BOT_TOKEN}"
-      KAI_TELEGRAM_CHAT_ID: "${KAI_TELEGRAM_CHAT_ID}"
+      KAI_SUBSCRIPTION_PASSWORD: "${KAI_SUBSCRIPTION_PASSWORD:-}"
+      KAI_SCHEDULER_EVERY: "${KAI_SCHEDULER_EVERY:-30m}"
+      KAI_SCHEDULER_ENABLED: "${KAI_SCHEDULER_ENABLED:-true}"
+      KAI_DB_USERNAME: "${KAI_DB_USERNAME:-postgres}"
+      KAI_DB_PASSWORD: "${KAI_DB_PASSWORD:-postgres}"
+      KAI_DB_JDBC_URL: "${KAI_DB_JDBC_URL:-jdbc:postgresql://host.docker.internal:5432/kai_ticket_checker}"
     volumes:
-      - kai-profile-a:/profiles/a
+      - kai-profile:/profiles/default
       - kai-playwright-browsers:/ms-playwright
     ports:
-      - "8081:8081"
-    restart: unless-stopped
-
-  kai-checker-b:
-    image: kai-ticket-checker:latest
-    container_name: kai-checker-b
-    depends_on:
-      - kai-checker-a
-    environment:
-      QUARKUS_HTTP_PORT: "8082"
-      KAI_PLAYWRIGHT_HEADLESS: "false"
-      PLAYWRIGHT_BROWSERS_PATH: "/ms-playwright"
-      KAI_SCHEDULE_START_DAY: "17"
-      KAI_SCHEDULE_END_DAY: "18"
-      KAI_SCHEDULER_EVERY: "30m"
-      KAI_ROUTE_ORIGINATION: "PSE:PASARSENEN"
-      KAI_ROUTE_DESTINATIONS: "KM:KEBUMEN"
-      KAI_ALERT_MAX_PRICE_RUPIAH: "600000"
-      KAI_PLAYWRIGHT_USER_DATA_DIR: "/profiles/b"
-      KAI_TELEGRAM_BOT_TOKEN: "${KAI_TELEGRAM_BOT_TOKEN}"
-      KAI_TELEGRAM_CHAT_ID: "${KAI_TELEGRAM_CHAT_ID}"
-    volumes:
-      - kai-profile-b:/profiles/b
-      - kai-playwright-browsers:/ms-playwright
-    ports:
-      - "8082:8082"
+      - "8080:8080"
     restart: unless-stopped
 
 volumes:
-  kai-profile-a:
-  kai-profile-b:
+  kai-profile:
   kai-playwright-browsers:

@@ -48,30 +48,35 @@ Build app image di atas base image:
 docker build -f docker/Dockerfile --build-arg BASE_IMAGE=kai-ticket-checker-base:latest -t kai-ticket-checker:latest .
 ```
 
-Run 2 container sekaligus (A dan B) via Compose (otomatis pakai base image di atas):
+Run via Compose (1 service app saja, otomatis pakai base image di atas):
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d --build
 ```
 
-`docker/docker-compose.yml` sudah menyiapkan:
-- `kai-checker-a`: tanggal 25-30, `KM -> PSE/GMR`.
-- `kai-checker-b`: tanggal 15-19, `PSE -> KM`.
-- profile Playwright terpisah (`/profiles/a` dan `/profiles/b`) agar tidak bentrok.
-- build arg `BASE_IMAGE` diambil dari env `KAI_BASE_IMAGE` (default: `kai-ticket-checker-base:latest`).
+`docker/docker-compose.yml`:
+- 1 container app `kai-ticket-checker` (port `8080`).
+- profile Playwright persisten di volume `/profiles/default`.
+- browser Playwright persisten di volume `/ms-playwright`.
 
 Sebelum `docker compose -f docker/docker-compose.yml up`, set env host:
 
 ```bash
 export KAI_TELEGRAM_BOT_TOKEN=your_bot_token
-export KAI_TELEGRAM_CHAT_ID=your_chat_id
+export KAI_SUBSCRIPTION_PASSWORD=your_password
+export KAI_DB_JDBC_URL="jdbc:postgresql://host.docker.internal:5432/kai_ticket_checker"
+export KAI_DB_USERNAME=postgres
+export KAI_DB_PASSWORD=postgres
 ```
 
 PowerShell:
 
 ```powershell
 $env:KAI_TELEGRAM_BOT_TOKEN="your_bot_token"
-$env:KAI_TELEGRAM_CHAT_ID="your_chat_id"
+$env:KAI_SUBSCRIPTION_PASSWORD="your_password"
+$env:KAI_DB_JDBC_URL="jdbc:postgresql://host.docker.internal:5432/kai_ticket_checker"
+$env:KAI_DB_USERNAME="postgres"
+$env:KAI_DB_PASSWORD="postgres"
 ```
 
 ## Konfigurasi
@@ -81,7 +86,6 @@ Semua credential disimpan via properti konfigurasi atau environment variable.
 ### Credential Telegram (wajib)
 
 - `kai.telegram.bot-token` (env: `KAI_TELEGRAM_BOT_TOKEN`)
-- `kai.telegram.chat-id` (env: `KAI_TELEGRAM_CHAT_ID`)
 
 Jika credential belum diisi, aplikasi tetap berjalan tetapi notifikasi Telegram tidak akan dikirim.
 
@@ -92,20 +96,15 @@ Jika credential belum diisi, aplikasi tetap berjalan tetapi notifikasi Telegram 
 - `kai.playwright.manual-wait-seconds` (default: `180`)
 - `kai.cloudflare.max-retries` (default: `3`)
 - `kai.cloudflare.retry-delay-seconds` (default: `20`)
-- `kai.route.origination` (default: `KM:KEBUMEN`)
-- `kai.route.destinations` (default: `PSE:PASARSENEN,GMR:GAMBIR`)
-- `kai.alert.max-price-rupiah` (default: `500000`)
 - `kai.scheduler.every` (default: `30m`)
 - `kai.scheduler.enabled` (default: `true`)
 
-Format `kai.route.origination`: `KODE:Nama`.
-Format `kai.route.destinations`: `KODE:Nama,KODE:Nama` (pisahkan dengan koma).
+Input rute, rentang hari, max price, dan chat id diambil dari database lewat endpoint `POST /subscriptions`.
 
 Contoh set credential via environment variable:
 
 ```bash
 export KAI_TELEGRAM_BOT_TOKEN="your_bot_token"
-export KAI_TELEGRAM_CHAT_ID="your_chat_id"
 ./mvnw quarkus:dev
 ```
 
@@ -125,4 +124,48 @@ $env:KAI_SCHEDULER_EVERY="15m"
 
 ## Endpoint
 
-- `GET /check`: jalankan pengecekan tiket secara manual.
+- `GET /check`: jalankan pengecekan manual berdasarkan data subscription di database.
+- `POST /subscriptions`: simpan subscription tiket ke PostgreSQL (1 tiket bisa punya banyak chat id Telegram).
+- `POST /telegram/webhook`: endpoint webhook Telegram bot (inline keyboard + callback_data + state machine).
+
+Contoh body:
+
+```json
+{
+  "start_date": "2026-03-25",
+  "end_date": "2026-03-30",
+  "origination": "KM",
+  "destination": "PSE",
+  "max_price": 500000,
+  "telegram_chat_id": "123456789",
+  "password": "your_password_if_enabled"
+}
+```
+
+Catatan:
+- Tahun harus tahun sekarang (mengikuti sistem) dan rentang tanggal maksimal 5 hari.
+- `telegram_chat_id` sekarang dibatasi: 1 chat id hanya boleh punya 1 subscription.
+- Jika `kai.subscription.password` diset, field `password` wajib diisi untuk membuat subscription.
+
+## Telegram Bot Flow
+
+Bot sekarang mendukung:
+- inline keyboard
+- callback_data
+- state machine per chat
+
+## Telegram Commands
+
+- `/start` atau `/menu`: tampilkan menu utama.
+- `/new`: mulai membuat subscription baru (jika password aktif, bot akan minta password dulu).
+- `/cancel`: batalkan flow pembuatan subscription.
+- `/subscriptions` (alias: `/subs`, `/list`): tampilkan daftar subscription milik chat ini.
+- `/delete`: hapus subscription milik chat ini secara interaktif (bot akan minta password; tidak bisa hapus subscription chat lain).
+
+Flow utama:
+1. User kirim `/start` atau `/new`.
+2. (Opsional) Bot minta password jika `kai.subscription.password` diset.
+3. Bot minta input berurutan: `start_date -> end_date (maks 5 hari) -> origination -> destination -> max_price`.
+3. User konfirmasi `Simpan`.
+4. Data tersimpan ke DB via service subscription.
+5. Scheduler membaca data DB dan mengirim hasil cek tiket ke chat id yang tersimpan.

@@ -1,3 +1,5 @@
+package seen.kai.checker.service;
+
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.BrowserType;
@@ -7,12 +9,17 @@ import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.WaitUntilState;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import seen.kai.checker.service.StationService.Station;
+import seen.kai.subscription.entity.TelegramChat;
+import seen.kai.subscription.entity.TicketSubscription;
+import seen.kai.subscription.service.SubscriptionService;
 
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -21,22 +28,28 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
-import java.util.stream.Stream;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @ApplicationScoped
 public class KaiService {
     private static final Logger LOG = Logger.getLogger(KaiService.class);
-    private static final Destination DEFAULT_ORIGINATION = new Destination("KM", "KEBUMEN");
-    private static final List<Destination> DEFAULT_DESTINATIONS = List.of(
-            new Destination("PSE", "PASARSENEN"),
-            new Destination("GMR", "GAMBIR")
-    );
     private static final Pattern CF_RAY_PATTERN = Pattern.compile("Ray ID:\\s*<code>([a-zA-Z0-9]+)</code>");
+    private static final DateTimeFormatter KAI_DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("d-MMMM-uuuu", Locale.forLanguageTag("id-ID"));
+
+    @Inject
+    SubscriptionService subscriptionService;
+
+    @Inject
+    StationService stationService;
 
     @ConfigProperty(name = "kai.playwright.headless", defaultValue = "false")
     boolean headless;
@@ -56,37 +69,14 @@ public class KaiService {
     @ConfigProperty(name = "kai.telegram.bot-token", defaultValue = "")
     String telegramBotToken;
 
-    @ConfigProperty(name = "kai.telegram.chat-id", defaultValue = "")
-    String telegramChatId;
+    public void checkTicketFromDatabase() {
+        List<TicketSubscription> subscriptions = subscriptionService.findAllWithChats();
+        if (subscriptions.isEmpty()) {
+            LOG.info("Tidak ada subscription di database. Scheduler skip.");
+            return;
+        }
 
-    @ConfigProperty(name = "kai.route.origination", defaultValue = "KM:KEBUMEN")
-    String originationConfig;
-
-    @ConfigProperty(name = "kai.route.destinations", defaultValue = "PSE:PASARSENEN,GMR:GAMBIR")
-    String destinationsConfig;
-
-    @ConfigProperty(name = "kai.alert.max-price-rupiah", defaultValue = "500000")
-    int maxAlertPriceRupiah;
-
-    @ConfigProperty(name = "kai.schedule.start-day", defaultValue = "25")
-    int startDay;
-
-    @ConfigProperty(name = "kai.schedule.end-day", defaultValue = "30")
-    int endDay;
-
-    public void checkTicket() {
         try (Playwright playwright = Playwright.create()) {
-            Destination origination = parseOrigination(originationConfig);
-            List<Destination> destinations = parseDestinations(destinationsConfig);
-            int loopStartDay = normalizeDay(startDay);
-            int loopEndDay = normalizeDay(endDay);
-            if (loopEndDay < loopStartDay) {
-                LOG.warnf("Rentang hari tidak valid (start=%d, end=%d). Menukar nilainya otomatis.",
-                        loopStartDay, loopEndDay);
-                int temp = loopStartDay;
-                loopStartDay = loopEndDay;
-                loopEndDay = temp;
-            }
             Path profileDir = Paths.get(userDataDir).toAbsolutePath();
             try (BrowserContext context = playwright.chromium().launchPersistentContext(
                     profileDir,
@@ -109,88 +99,132 @@ public class KaiService {
                 Page page = context.pages().isEmpty() ? context.newPage() : context.pages().getFirst();
                 page.setDefaultTimeout(30000);
 
-                for (int day = loopStartDay; day <= loopEndDay; day++) {
-                    for (Destination destination : destinations) {
-                        String date = day + "-Maret-2026";
-                        String url = buildKaiUrl(date, origination, destination);
-
-                        LOG.infof("Checking date: %s, destination: %s", date, destination.name());
-
-                        Document doc = fetchScheduleDocumentWithRetry(page, date, destination, url);
-                        if (doc == null) {
-                            continue;
-                        }
-
-                        Elements trains = doc.select(".data-block");
-                        if (trains.isEmpty()) {
-                            LOG.warnf("Tidak menemukan data kereta untuk tanggal %s tujuan %s", date, destination.name());
-                            continue;
-                        }
-
-                        boolean foundTicket = false;
-                        StringBuilder message = new StringBuilder();
-                        message.append("Tanggal: ").append(date).append("\n")
-                                .append("Tujuan: ").append(destination.name())
-                                .append(" (").append(destination.code()).append(")")
-                                .append("\n\n");
-
-                        for (Element train : trains) {
-                            String name = train.select(".name").text();
-                            String price = train.select(".price").text();
-                            String status = train.select(".sisa-kursi").text();
-                            String departureTime = extractFirstText(train,
-                                    ".times.time-start",
-                                    ".time-start",
-                                    "input[name=timestart]",
-                                    ".jam-berangkat",
-                                    ".departure-time",
-                                    ".time-departure",
-                                    ".departure .time",
-                                    ".schedule .departure");
-                            String arrivalTime = extractFirstText(train,
-                                    ".times.time-end",
-                                    ".time-end",
-                                    "input[name=timeend]",
-                                    ".jam-tiba",
-                                    ".arrival-time",
-                                    ".time-arrival",
-                                    ".arrival .time",
-                                    ".schedule .arrival");
-                            int priceRupiah = parseRupiah(price);
-                            boolean soldOut = status.toLowerCase(Locale.ROOT).contains("habis");
-                            boolean withinPrice = priceRupiah > 0 && priceRupiah <= maxAlertPriceRupiah;
-
-                            if (!soldOut && withinPrice) {
-                                foundTicket = true;
-                                message.append("\uD83D\uDEA8 TIKET TERSEDIA\n")
-                                        .append("Kereta: ").append(name).append("\n")
-                                        .append("Berangkat: ").append(departureTime).append("\n")
-                                        .append("Tiba: ").append(arrivalTime).append("\n")
-                                        .append("Harga: ").append(price).append("\n")
-                                        .append("Status: ").append(status).append("\n\n");
-                            }
-                        }
-
-                        if (!foundTicket) {
-                            message.append("❌ Tidak ada tiket tersedia dengan harga <= Rp")
-                                    .append(formatRupiah(maxAlertPriceRupiah))
-                                    .append(".");
-                        }
-
-                        sendMessage(message.toString());
-                        page.waitForTimeout(5000);
-                    }
+                for (TicketSubscription subscription : subscriptions) {
+                    checkSubscription(page, subscription);
                 }
             }
         } catch (PlaywrightException e) {
             LOG.error("Playwright tidak bisa dijalankan", e);
-            sendMessage("⚠️ Ticket checker gagal: Playwright tidak bisa dijalankan.");
+            notifyPlaywrightFailure(subscriptions);
         } catch (Exception e) {
-            LOG.error("Error checking ticket", e);
+            LOG.error("Error checking ticket from database", e);
         }
     }
 
-    private Document fetchScheduleDocumentWithRetry(Page page, String date, Destination destination, String url) {
+    private void checkSubscription(Page page, TicketSubscription subscription) {
+        List<String> chatIds = extractChatIds(subscription);
+        if (chatIds.isEmpty()) {
+            LOG.warnf("Subscription id=%d tidak punya chat_id, dilewati.", subscription.getId());
+            return;
+        }
+
+        Destination origination = toDestination(subscription.getOrigination(), subscription.getOriginationName());
+        Destination destination = toDestination(subscription.getDestination(), subscription.getDestinationName());
+        LocalDate startDate = subscription.getStartDate();
+        LocalDate endDate = subscription.getEndDate();
+        if (startDate == null || endDate == null) {
+            LOG.warnf("Subscription id=%d tidak punya start_date/end_date, dilewati.", subscription.getId());
+            return;
+        }
+        if (endDate.isBefore(startDate)) {
+            LocalDate temp = startDate;
+            startDate = endDate;
+            endDate = temp;
+        }
+
+        for (LocalDate targetDate = startDate; !targetDate.isAfter(endDate); targetDate = targetDate.plusDays(1)) {
+            String kaiDate = KAI_DATE_FORMATTER.format(targetDate);
+            String url = buildKaiUrl(kaiDate, origination, destination);
+
+            LOG.infof(
+                    "Checking subscription id=%d date=%s route=%s->%s maxPrice=%d",
+                    subscription.getId(), kaiDate, origination.code(), destination.code(), subscription.getMaxPrice()
+            );
+
+            Document doc = fetchScheduleDocumentWithRetry(page, kaiDate, destination, url, chatIds);
+            if (doc == null) {
+                continue;
+            }
+
+            Elements trains = doc.select(".data-block");
+            if (trains.isEmpty()) {
+                LOG.warnf("Tidak menemukan data kereta untuk tanggal %s tujuan %s", kaiDate, destination.name());
+                continue;
+            }
+
+            String message = buildResultMessage(kaiDate, origination, destination, subscription.getMaxPrice(), trains);
+            sendMessageToChats(message, chatIds);
+            page.waitForTimeout(5000);
+        }
+    }
+
+    private String buildResultMessage(
+            String date,
+            Destination origination,
+            Destination destination,
+            int maxPrice,
+            Elements trains
+    ) {
+        boolean foundTicket = false;
+        StringBuilder message = new StringBuilder();
+        message.append("Tanggal: ").append(date).append("\n")
+                .append("Rute: ").append(origination.code()).append(" -> ").append(destination.code()).append("\n")
+                .append("Maks harga: Rp").append(formatRupiah(maxPrice)).append("\n\n");
+
+        for (Element train : trains) {
+            String name = train.select(".name").text();
+            String price = train.select(".price").text();
+            String status = train.select(".sisa-kursi").text();
+            String departureTime = extractFirstText(train,
+                    ".times.time-start",
+                    ".time-start",
+                    "input[name=timestart]",
+                    ".jam-berangkat",
+                    ".departure-time",
+                    ".time-departure",
+                    ".departure .time",
+                    ".schedule .departure");
+            String arrivalTime = extractFirstText(train,
+                    ".times.time-end",
+                    ".time-end",
+                    "input[name=timeend]",
+                    ".jam-tiba",
+                    ".arrival-time",
+                    ".time-arrival",
+                    ".arrival .time",
+                    ".schedule .arrival");
+
+            int priceRupiah = parseRupiah(price);
+            boolean soldOut = status.toLowerCase(Locale.ROOT).contains("habis");
+            boolean withinPrice = priceRupiah > 0 && priceRupiah <= maxPrice;
+
+            if (!soldOut && withinPrice) {
+                foundTicket = true;
+                message.append("TIKET TERSEDIA\n")
+                        .append("Kereta: ").append(name).append("\n")
+                        .append("Berangkat: ").append(departureTime).append("\n")
+                        .append("Tiba: ").append(arrivalTime).append("\n")
+                        .append("Harga: ").append(price).append("\n")
+                        .append("Status: ").append(status).append("\n\n");
+            }
+        }
+
+        if (!foundTicket) {
+            message.append("Tidak ada tiket tersedia dengan harga <= Rp")
+                    .append(formatRupiah(maxPrice))
+                    .append(".");
+        }
+
+        return message.toString();
+    }
+
+    private Document fetchScheduleDocumentWithRetry(
+            Page page,
+            String date,
+            Destination destination,
+            String url,
+            List<String> chatIds
+    ) {
         int maxAttempts = Math.max(1, cloudflareMaxRetries + 1);
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
@@ -201,7 +235,7 @@ public class KaiService {
                         date, destination.name(), attempt, maxAttempts);
 
                 if (attempt >= maxAttempts) {
-                    sendCloudflareAlert(date, destination, url, "Playwright gagal navigasi setelah retry.", "-");
+                    sendCloudflareAlert(chatIds, date, destination, url, "Playwright gagal navigasi setelah retry.", "-");
                     return null;
                 }
 
@@ -219,7 +253,7 @@ public class KaiService {
             LOG.warnf("Cloudflare challenge terdeteksi untuk tanggal %s tujuan %s (attempt %d/%d)",
                     date, destination.name(), attempt, maxAttempts);
 
-            boolean solved = !headless && waitForManualChallengeSolve(page, date, destination, url);
+            boolean solved = !headless && waitForManualChallengeSolve(page, date, destination, url, chatIds);
             if (solved) {
                 html = safeReadPageContent(page);
                 doc = Jsoup.parse(html);
@@ -231,7 +265,7 @@ public class KaiService {
             }
 
             if (attempt >= maxAttempts) {
-                sendCloudflareAlert(date, destination, url, "Managed challenge/Turnstile tetap muncul setelah retry.", rayId);
+                sendCloudflareAlert(chatIds, date, destination, url, "Managed challenge/Turnstile tetap muncul setelah retry.", rayId);
                 return null;
             }
 
@@ -253,17 +287,25 @@ public class KaiService {
         }
     }
 
-    private boolean waitForManualChallengeSolve(Page page, String date, Destination destination, String url) {
+    private boolean waitForManualChallengeSolve(
+            Page page,
+            String date,
+            Destination destination,
+            String url,
+            List<String> chatIds
+    ) {
         if (manualWaitSeconds <= 0) {
             return false;
         }
 
-        sendMessage("⚠️ Cloudflare challenge terdeteksi.\n"
-                + "Tanggal: " + date + "\n"
-                + "Tujuan: " + destination.name() + " (" + destination.code() + ")\n"
-                + "Silakan selesaikan verifikasi manual di jendela browser dalam "
-                + manualWaitSeconds + " detik.\n"
-                + "URL: " + url);
+        sendMessageToChats(
+                "Cloudflare challenge terdeteksi.\n"
+                        + "Tanggal: " + date + "\n"
+                        + "Tujuan: " + destination.name() + " (" + destination.code() + ")\n"
+                        + "Selesaikan verifikasi manual di browser dalam " + manualWaitSeconds + " detik.\n"
+                        + "URL: " + url,
+                chatIds
+        );
 
         long deadline = System.currentTimeMillis() + (manualWaitSeconds * 1000L);
         while (System.currentTimeMillis() < deadline) {
@@ -271,7 +313,7 @@ public class KaiService {
             String html = safeReadPageContent(page);
             Document doc = Jsoup.parse(html);
             if (isSchedulePage(doc, html)) {
-                sendMessage("✅ Verifikasi Cloudflare berhasil. Checker lanjut otomatis.");
+                sendMessageToChats("Verifikasi Cloudflare berhasil. Checker lanjut otomatis.", chatIds);
                 return true;
             }
         }
@@ -305,16 +347,26 @@ public class KaiService {
         throw lastException;
     }
 
-    public void sendMessage(String message) {
-        if (telegramBotToken.isBlank() || telegramChatId.isBlank()) {
-            LOG.warn("Telegram credential belum diatur. Set kai.telegram.bot-token dan kai.telegram.chat-id.");
+    public void sendMessageToChats(String message, List<String> chatIds) {
+        if (telegramBotToken.isBlank()) {
+            LOG.warn("Telegram bot token belum diatur. Set kai.telegram.bot-token.");
+            return;
+        }
+
+        for (String chatId : chatIds) {
+            sendMessage(message, chatId);
+        }
+    }
+
+    private void sendMessage(String message, String chatId) {
+        if (chatId == null || chatId.isBlank()) {
             return;
         }
 
         try {
             String encodedMessage = URLEncoder.encode(message, StandardCharsets.UTF_8);
             String urlString = "https://api.telegram.org/bot" + telegramBotToken + "/sendMessage"
-                    + "?chat_id=" + telegramChatId + "&text=" + encodedMessage;
+                    + "?chat_id=" + chatId + "&text=" + encodedMessage;
 
             URL url = URI.create(urlString).toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -324,12 +376,12 @@ public class KaiService {
 
             int responseCode = conn.getResponseCode();
             if (responseCode == 200) {
-                LOG.info("Telegram message sent successfully");
+                LOG.infof("Telegram message sent successfully to chat_id=%s", chatId);
             } else {
-                LOG.info("Telegram response code: " + responseCode);
+                LOG.warnf("Telegram response code=%d for chat_id=%s", responseCode, chatId);
             }
         } catch (Exception e) {
-            LOG.error("Failed to send Telegram message", e);
+            LOG.errorf(e, "Failed to send Telegram message to chat_id=%s", chatId);
         }
     }
 
@@ -346,50 +398,6 @@ public class KaiService {
                 + URLEncoder.encode(date, StandardCharsets.UTF_8)
                 + "&adult=1&infant=0&submit="
                 + URLEncoder.encode("Cari & Pesan Tiket", StandardCharsets.UTF_8);
-    }
-
-    private Destination parseOrigination(String config) {
-        Destination parsed = parseRoute(config);
-        if (parsed == null) {
-            LOG.warnf("Format kai.route.origination tidak valid: '%s'. Menggunakan default origination.", config);
-            return DEFAULT_ORIGINATION;
-        }
-        return parsed;
-    }
-
-    private List<Destination> parseDestinations(String config) {
-        if (config == null || config.isBlank()) {
-            LOG.warn("Config kai.route.destinations kosong. Menggunakan default destination.");
-            return DEFAULT_DESTINATIONS;
-        }
-
-        List<Destination> parsed = config.lines()
-                .flatMap(line -> Stream.of(line.split(",")))
-                .map(String::trim)
-                .filter(item -> !item.isBlank())
-                .map(this::parseRoute)
-                .filter(Objects::nonNull)
-                .toList();
-
-        if (parsed.isEmpty()) {
-            LOG.warnf("Format kai.route.destinations tidak valid: '%s'. Menggunakan default destination.", config);
-            return DEFAULT_DESTINATIONS;
-        }
-
-        return parsed;
-    }
-
-    private Destination parseRoute(String config) {
-        if (config == null || config.isBlank()) {
-            return null;
-        }
-
-        String[] parts = config.split(":", 2);
-        if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
-            return null;
-        }
-
-        return new Destination(parts[0].trim(), parts[1].trim());
     }
 
     private boolean isSchedulePage(Document doc, String html) {
@@ -419,14 +427,37 @@ public class KaiService {
         return signals < 2;
     }
 
-    private void sendCloudflareAlert(String date, Destination destination, String url, String status, String rayId) {
-        String message = "⚠️ Cloudflare terdeteksi saat cek tiket\n"
+    private void sendCloudflareAlert(
+            List<String> chatIds,
+            String date,
+            Destination destination,
+            String url,
+            String status,
+            String rayId
+    ) {
+        String message = "Cloudflare terdeteksi saat cek tiket\n"
                 + "Tanggal: " + date + "\n"
                 + "Tujuan: " + destination.name() + " (" + destination.code() + ")\n"
                 + "URL: " + url + "\n"
                 + "Status: " + status + "\n"
                 + "Ray ID: " + rayId;
-        sendMessage(message);
+        sendMessageToChats(message, chatIds);
+    }
+
+    private void notifyPlaywrightFailure(List<TicketSubscription> subscriptions) {
+        Set<String> chatIds = new LinkedHashSet<>();
+        for (TicketSubscription subscription : subscriptions) {
+            chatIds.addAll(extractChatIds(subscription));
+        }
+        sendMessageToChats("Ticket checker gagal: Playwright tidak bisa dijalankan.", new ArrayList<>(chatIds));
+    }
+
+    private List<String> extractChatIds(TicketSubscription subscription) {
+        return subscription.getTelegramChats().stream()
+                .map(TelegramChat::getChatId)
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .toList();
     }
 
     private String extractCloudflareRayId(String html) {
@@ -453,18 +484,6 @@ public class KaiService {
         return String.format(Locale.forLanguageTag("id-ID"), "%,d", value).replace(',', '.');
     }
 
-    private int normalizeDay(int day) {
-        if (day < 1) {
-            LOG.warnf("Nilai hari %d terlalu kecil, memakai 1.", day);
-            return 1;
-        }
-        if (day > 31) {
-            LOG.warnf("Nilai hari %d terlalu besar, memakai 31.", day);
-            return 31;
-        }
-        return day;
-    }
-
     private String extractFirstText(Element root, String... selectors) {
         for (String selector : selectors) {
             Elements elements = root.select(selector);
@@ -481,6 +500,23 @@ public class KaiService {
             }
         }
         return "-";
+    }
+
+    private Destination toDestination(String stationCode, String stationName) {
+        String normalizedCode = stationCode == null ? "" : stationCode.trim().toUpperCase(Locale.ROOT);
+        String normalizedName = stationName == null ? "" : stationName.trim();
+
+        if (normalizedName.isBlank() && !normalizedCode.isBlank()) {
+            Station station = stationService.findByCode(normalizedCode).orElse(null);
+            if (station != null && station.name() != null && !station.name().isBlank()) {
+                normalizedName = station.name().trim();
+            }
+        }
+
+        if (normalizedName.isBlank()) {
+            normalizedName = normalizedCode;
+        }
+        return new Destination(normalizedCode, normalizedName);
     }
 
     private record Destination(String code, String name) {

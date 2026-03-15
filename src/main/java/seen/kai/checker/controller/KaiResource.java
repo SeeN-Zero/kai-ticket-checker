@@ -1,6 +1,9 @@
+package seen.kai.checker.controller;
+
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
+import seen.kai.checker.service.KaiService;
 
 @Path("/check")
 public class KaiResource {
@@ -9,7 +12,7 @@ public class KaiResource {
 
     @GET
     public String check() {
-        kaiService.checkTicket();
+        kaiService.checkTicketFromDatabase();
         return "Ticket check executed";
     }
 }

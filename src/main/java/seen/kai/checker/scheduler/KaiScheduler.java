@@ -1,8 +1,11 @@
+package seen.kai.checker.scheduler;
+
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import seen.kai.checker.service.KaiService;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -31,8 +34,8 @@ public class KaiScheduler {
 
         Thread.startVirtualThread(() -> {
             try {
-                LOG.info("Checking ticket...");
-                kaiService.checkTicket();
+                LOG.info("Checking ticket from database subscriptions...");
+                kaiService.checkTicketFromDatabase();
             } finally {
                 running.set(false);
             }
