@@ -5,12 +5,11 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-
-import java.util.HashSet;
-import java.util.Set;
 
 @Entity
 @Table(
@@ -25,8 +24,9 @@ public class TelegramChat {
     @Column(name = "chat_id", nullable = false, length = 100)
     private String chatId;
 
-    @ManyToMany(mappedBy = "telegramChats")
-    private final Set<TicketSubscription> subscriptions = new HashSet<>();
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ticket_subscription_id")
+    private TicketSubscription subscription;
 
     public Long getId() {
         return id;
@@ -40,7 +40,11 @@ public class TelegramChat {
         this.chatId = chatId;
     }
 
-    public Set<TicketSubscription> getSubscriptions() {
-        return subscriptions;
+    public TicketSubscription getSubscription() {
+        return subscription;
+    }
+
+    public void setSubscription(TicketSubscription subscription) {
+        this.subscription = subscription;
     }
 }

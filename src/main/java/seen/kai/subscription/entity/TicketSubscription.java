@@ -5,9 +5,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
@@ -28,10 +27,10 @@ public class TicketSubscription {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "start_date")
+    @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
-    @Column(name = "end_date")
+    @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
     @Column(name = "origination", nullable = false, length = 20)
@@ -49,16 +48,7 @@ public class TicketSubscription {
     @Column(name = "max_price", nullable = false)
     private int maxPrice;
 
-    @ManyToMany
-    @JoinTable(
-            name = "ticket_subscription_chat",
-            joinColumns = @JoinColumn(name = "ticket_subscription_id"),
-            inverseJoinColumns = @JoinColumn(name = "telegram_chat_id"),
-            uniqueConstraints = @UniqueConstraint(
-                    name = "uk_ticket_subscription_chat_telegram_chat_id",
-                    columnNames = "telegram_chat_id"
-            )
-    )
+    @OneToMany(mappedBy = "subscription", cascade = CascadeType.ALL, orphanRemoval = false)
     private final Set<TelegramChat> telegramChats = new HashSet<>();
 
     public Long getId() {
@@ -126,8 +116,11 @@ public class TicketSubscription {
     }
 
     public void addTelegramChat(TelegramChat chat) {
+        if (chat == null) {
+            return;
+        }
         telegramChats.add(chat);
-        chat.getSubscriptions().add(this);
+        chat.setSubscription(this);
     }
 
     public void removeTelegramChat(TelegramChat chat) {
@@ -135,6 +128,8 @@ public class TicketSubscription {
             return;
         }
         telegramChats.remove(chat);
-        chat.getSubscriptions().remove(this);
+        if (chat.getSubscription() == this) {
+            chat.setSubscription(null);
+        }
     }
 }

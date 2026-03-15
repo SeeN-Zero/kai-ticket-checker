@@ -71,7 +71,6 @@ public class StationService {
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("User-Agent", "kai-ticket-checker");
-            // Some servers reject POST without a declared body length; this forces Content-Length: 0.
             connection.setDoOutput(true);
             connection.setFixedLengthStreamingMode(0);
             connection.setConnectTimeout(10000);
@@ -95,7 +94,7 @@ public class StationService {
                     return fallback;
                 }
 
-                List<Station> stations = objectMapper.convertValue(stationsNode, new TypeReference<List<Station>>() {
+                List<Station> stations = objectMapper.convertValue(stationsNode, new TypeReference<>() {
                 });
                 Map<String, Station> byCode = new HashMap<>();
                 for (Station station : stations) {

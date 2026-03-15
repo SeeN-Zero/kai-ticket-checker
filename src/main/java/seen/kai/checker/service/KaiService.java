@@ -122,15 +122,6 @@ public class KaiService {
         Destination destination = toDestination(subscription.getDestination(), subscription.getDestinationName());
         LocalDate startDate = subscription.getStartDate();
         LocalDate endDate = subscription.getEndDate();
-        if (startDate == null || endDate == null) {
-            LOG.warnf("Subscription id=%d tidak punya start_date/end_date, dilewati.", subscription.getId());
-            return;
-        }
-        if (endDate.isBefore(startDate)) {
-            LocalDate temp = startDate;
-            startDate = endDate;
-            endDate = temp;
-        }
 
         for (LocalDate targetDate = startDate; !targetDate.isAfter(endDate); targetDate = targetDate.plusDays(1)) {
             String kaiDate = KAI_DATE_FORMATTER.format(targetDate);

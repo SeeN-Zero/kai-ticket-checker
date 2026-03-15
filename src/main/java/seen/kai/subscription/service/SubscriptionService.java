@@ -79,9 +79,9 @@ public class SubscriptionService {
                 telegramChatRepository.persist(chat);
             }
 
-            if (!chat.getSubscriptions().isEmpty() && !chat.getSubscriptions().contains(subscription)) {
-                TicketSubscription existing = chat.getSubscriptions().stream().findFirst().orElse(null);
-                if (existing != null && existing.getId() != null) {
+            TicketSubscription existing = chat.getSubscription();
+            if (existing != null && existing != subscription) {
+                if (existing.getId() != null) {
                     throw new IllegalArgumentException(
                             "Chat ini sudah punya subscription id=" + existing.getId()
                                     + ". Hapus dulu pakai /delete lalu masukkan password."
