@@ -61,7 +61,7 @@ pipeline {
             steps {
                 script {
                     dir("${DOCKER_DIR}") {
-                        sh "docker compose up -d --no-build"
+                        sh "docker compose -f ${DOCKER_DIR}/docker-compose.yml up -d --no-build"
                     }
                 }
             }
