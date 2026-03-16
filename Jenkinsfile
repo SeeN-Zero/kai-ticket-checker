@@ -61,8 +61,9 @@ pipeline {
             steps {
                 script {
                     dir("${DOCKER_DIR}") {
-                        //sh "docker compose up -d --no-build"
-                        sh "docker compose -f ${DOCKER_DIR}/docker-compose.yml up -d --build"
+                        // Jalankan docker compose dari dalam direktori docker/
+                        // Menggunakan --no-build karena image sudah di-build di stage sebelumnya
+                        sh "docker compose up -d --no-build"
                     }
                 }
             }
