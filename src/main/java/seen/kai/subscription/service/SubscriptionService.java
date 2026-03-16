@@ -2,6 +2,7 @@ package seen.kai.subscription.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import seen.kai.checker.service.StationService;
 import seen.kai.subscription.dto.request.SubscriptionRequest;
 import seen.kai.subscription.dto.response.SubscriptionResponse;
@@ -9,7 +10,6 @@ import seen.kai.subscription.entity.TelegramChat;
 import seen.kai.subscription.entity.TicketSubscription;
 import seen.kai.subscription.repository.TelegramChatRepository;
 import seen.kai.subscription.repository.TicketSubscriptionRepository;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -45,7 +45,7 @@ public class SubscriptionService {
 
         String normalizedOrigination = originationStation.code().trim().toUpperCase(Locale.ROOT);
         String normalizedDestination = destinationStation.code().trim().toUpperCase(Locale.ROOT);
-        List<String> chatIds = request.resolveChatIds();
+        String chatId = request.resolveChatId();
 
         TicketSubscription subscription = ticketSubscriptionRepository.findByUniqueKey(
                 request.startDate(),
@@ -71,26 +71,24 @@ public class SubscriptionService {
             subscription.setDestinationName(destinationStation.name());
         }
 
-        for (String chatId : chatIds) {
-            TelegramChat chat = telegramChatRepository.findByChatId(chatId);
-            if (chat == null) {
-                chat = new TelegramChat();
-                chat.setChatId(chatId);
-                telegramChatRepository.persist(chat);
-            }
-
-            TicketSubscription existing = chat.getSubscription();
-            if (existing != null && existing != subscription) {
-                if (existing.getId() != null) {
-                    throw new IllegalArgumentException(
-                            "Chat ini sudah punya subscription id=" + existing.getId()
-                                    + ". Hapus dulu pakai /delete lalu masukkan password."
-                    );
-                }
-                throw new IllegalArgumentException("Chat ini sudah punya subscription. Hapus dulu sebelum membuat yang baru.");
-            }
-            subscription.addTelegramChat(chat);
+        TelegramChat chat = telegramChatRepository.findByChatId(chatId);
+        if (chat == null) {
+            chat = new TelegramChat();
+            chat.setChatId(chatId);
+            telegramChatRepository.persist(chat);
         }
+
+        TicketSubscription existing = chat.getSubscription();
+        if (existing != null && existing != subscription) {
+            if (existing.getId() != null) {
+                throw new IllegalArgumentException(
+                        "Chat ini sudah punya subscription id=" + existing.getId()
+                                + ". Hapus dulu pakai /delete lalu masukkan password."
+                );
+            }
+            throw new IllegalArgumentException("Chat ini sudah punya subscription. Hapus dulu sebelum membuat yang baru.");
+        }
+        subscription.addTelegramChat(chat);
 
         ticketSubscriptionRepository.flush();
         return SubscriptionResponse.from(subscription);
@@ -189,7 +187,7 @@ public class SubscriptionService {
         if (request.maxPrice() == null || request.maxPrice() <= 0) {
             throw new IllegalArgumentException("max_price wajib > 0.");
         }
-        if (request.resolveChatIds().isEmpty()) {
+        if (request.resolveChatId() == null) {
             throw new IllegalArgumentException("telegram_chat_id wajib diisi.");
         }
     }

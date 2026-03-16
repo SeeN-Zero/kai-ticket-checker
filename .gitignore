@@ -38,8 +38,13 @@ nb-configuration.xml
 
 # Local environment
 .env
+.env.local
 .playwright-profile/
 *.local.properties
+src/main/resources/application-local.properties
+
+# Local Docker overrides (do not commit)
+docker/docker-compose.local.yml
 
 # Plugin directory
 /.quarkus/cli/plugins/
@@ -48,3 +53,4 @@ nb-configuration.xml
 /.playwright-profile-A/
 /.playwright-profile-B/
 /.tmp/
+/src/main/resources/application-dev.properties

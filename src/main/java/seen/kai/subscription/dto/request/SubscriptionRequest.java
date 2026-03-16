@@ -3,7 +3,6 @@ package seen.kai.subscription.dto.request;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.LocalDate;
-import java.util.List;
 
 public record SubscriptionRequest(
         @JsonProperty("start_date") LocalDate startDate,
@@ -14,10 +13,10 @@ public record SubscriptionRequest(
         @JsonProperty("telegram_chat_id") String telegramChatId,
         String password
 ) {
-    public List<String> resolveChatIds() {
+    public String resolveChatId() {
         if (telegramChatId == null || telegramChatId.isBlank()) {
-            return List.of();
+            return null;
         }
-        return List.of(telegramChatId.trim());
+        return telegramChatId.trim();
     }
 }

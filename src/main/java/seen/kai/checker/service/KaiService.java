@@ -20,10 +20,8 @@ import seen.kai.checker.service.StationService.Station;
 import seen.kai.subscription.entity.TelegramChat;
 import seen.kai.subscription.entity.TicketSubscription;
 import seen.kai.subscription.service.SubscriptionService;
+import seen.kai.telegram.service.TelegramApiService;
 
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -42,14 +40,16 @@ import java.util.regex.Pattern;
 public class KaiService {
     private static final Logger LOG = Logger.getLogger(KaiService.class);
     private static final Pattern CF_RAY_PATTERN = Pattern.compile("Ray ID:\\s*<code>([a-zA-Z0-9]+)</code>");
-    private static final DateTimeFormatter KAI_DATE_FORMATTER =
-            DateTimeFormatter.ofPattern("d-MMMM-uuuu", Locale.forLanguageTag("id-ID"));
+    private static final DateTimeFormatter KAI_DATE_FORMATTER = DateTimeFormatter.ofPattern("d-MMMM-uuuu", Locale.forLanguageTag("id-ID"));
 
     @Inject
     SubscriptionService subscriptionService;
 
     @Inject
     StationService stationService;
+
+    @Inject
+    TelegramApiService telegramApi;
 
     @ConfigProperty(name = "kai.playwright.headless", defaultValue = "false")
     boolean headless;
@@ -65,9 +65,6 @@ public class KaiService {
 
     @ConfigProperty(name = "kai.cloudflare.retry-delay-seconds", defaultValue = "20")
     int cloudflareRetryDelaySeconds;
-
-    @ConfigProperty(name = "kai.telegram.bot-token", defaultValue = "")
-    String telegramBotToken;
 
     public void checkTicketFromDatabase() {
         List<TicketSubscription> subscriptions = subscriptionService.findAllWithChats();
@@ -339,40 +336,12 @@ public class KaiService {
     }
 
     public void sendMessageToChats(String message, List<String> chatIds) {
-        if (telegramBotToken.isBlank()) {
-            LOG.warn("Telegram bot token belum diatur. Set kai.telegram.bot-token.");
+        if (!telegramApi.isEnabled()) {
             return;
         }
 
         for (String chatId : chatIds) {
-            sendMessage(message, chatId);
-        }
-    }
-
-    private void sendMessage(String message, String chatId) {
-        if (chatId == null || chatId.isBlank()) {
-            return;
-        }
-
-        try {
-            String encodedMessage = URLEncoder.encode(message, StandardCharsets.UTF_8);
-            String urlString = "https://api.telegram.org/bot" + telegramBotToken + "/sendMessage"
-                    + "?chat_id=" + chatId + "&text=" + encodedMessage;
-
-            URL url = URI.create(urlString).toURL();
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(10000);
-            conn.setReadTimeout(10000);
-
-            int responseCode = conn.getResponseCode();
-            if (responseCode == 200) {
-                LOG.infof("Telegram message sent successfully to chat_id=%s", chatId);
-            } else {
-                LOG.warnf("Telegram response code=%d for chat_id=%s", responseCode, chatId);
-            }
-        } catch (Exception e) {
-            LOG.errorf(e, "Failed to send Telegram message to chat_id=%s", chatId);
+            telegramApi.sendMessage(chatId, message, null);
         }
     }
 

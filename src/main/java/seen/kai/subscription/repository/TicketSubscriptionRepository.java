@@ -39,10 +39,6 @@ public class TicketSubscriptionRepository {
         return result.isEmpty() ? null : result.getFirst();
     }
 
-    public void persist(TicketSubscription subscription) {
-        entityManager.persist(subscription);
-    }
-
     public TicketSubscription findByIdWithChats(Long id) {
         if (id == null) {
             return null;
@@ -101,6 +97,10 @@ public class TicketSubscriptionRepository {
             return;
         }
         entityManager.remove(entityManager.contains(subscription) ? subscription : entityManager.merge(subscription));
+    }
+
+    public void persist(TicketSubscription subscription) {
+        entityManager.persist(subscription);
     }
 
     public void flush() {
