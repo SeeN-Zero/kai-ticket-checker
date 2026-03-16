@@ -4,10 +4,9 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 WORKDIR /app
 
-COPY . .
-
-RUN mvn -DskipTests package
+# Menyalin file JAR hasil build dari host ke container (tanpa build ulang)
+COPY target/*-runner.jar app.jar
 
 EXPOSE 8080
 
-CMD ["sh", "-lc", "xvfb-run -a --server-args='-screen 0 1920x1080x24' java -jar target/kai-ticket-checker-1.0-SNAPSHOT-runner.jar"]
+CMD ["sh", "-lc", "xvfb-run -a --server-args='-screen 0 1920x1080x24' java -jar app.jar"]
