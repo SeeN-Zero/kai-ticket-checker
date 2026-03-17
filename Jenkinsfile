@@ -11,7 +11,7 @@ pipeline {
         SERVER_IP          = credentials('SERVER_IP_G14')
         SERVER_PORT        = '2222'
         DEPLOY_PATH        = "/home/${SERVER_USER}/${IMAGE_NAME}"
-        SSH_CREDENTIALS_ID = 'ssh-server-credentials' // Gunakan ID string di sini jika menggunakan sshagent
+        SSH_CREDENTIALS_ID = 'ssh-g14-credentials'
 
         KAI_TELEGRAM_BOT_TOKEN    = credentials('KAI_TELEGRAM_BOT_TOKEN')
         KAI_SUBSCRIPTION_PASSWORD = credentials('KAI_SUBSCRIPTION_PASSWORD')
