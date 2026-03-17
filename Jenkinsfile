@@ -40,38 +40,68 @@ pipeline {
 
         stage('Deploy via SSH') {
             steps {
-                sshagent(["${SSH_CREDENTIALS_ID}"]) {
-                    script {
-                        echo "Menyiapkan direktori di server: ${DEPLOY_PATH}"
-                        sh "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'mkdir -p ${DEPLOY_PATH}/target ${DEPLOY_PATH}/${DOCKER_DIR}/base'"
+                script {
+                    echo "--- Menyiapkan direktori di server target ---"
+                    // Langsung panggil ssh tanpa sshagent block
+                    sh "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'mkdir -p ${DEPLOY_PATH}/target ${DEPLOY_PATH}/docker/base'"
 
-                        echo "Mengirim file ke server..."
-                        // Kirim file yang dibutuhkan untuk build docker
-                        sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no target/*-runner.jar ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/target/"
-                        sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
-                        sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/docker-compose.yml ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
-                        sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/base/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/base/"
-                        sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/deploy.sh ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
+                    echo "--- Mengirim file ke server target ---"
+                    // SCP akan otomatis mencari key di ~/.ssh/
+                    sh "scp -P ${SERVER_PORT} target/*-runner.jar ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/target/"
+                    sh "scp -P ${SERVER_PORT} docker/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/docker/"
+                    sh "scp -P ${SERVER_PORT} docker/docker-compose.yml ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/docker/"
+                    sh "scp -P ${SERVER_PORT} docker/base/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/docker/base/"
+                    sh "scp -P ${SERVER_PORT} docker/deploy.sh ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/docker/"
 
-                        echo "Menjalankan script deploy di server..."
-                        sh """
-                            ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} '
-                                export KAI_TELEGRAM_BOT_TOKEN="${KAI_TELEGRAM_BOT_TOKEN}"
-                                export KAI_SUBSCRIPTION_PASSWORD="${KAI_SUBSCRIPTION_PASSWORD}"
-                                export KAI_DB_USERNAME="${KAI_DB_USERNAME}"
-                                export KAI_DB_PASSWORD="${KAI_DB_PASSWORD}"
-                                export KAI_DB_JDBC_URL="${KAI_DB_JDBC_URL}"
-                                export KAI_SCHEDULER_EVERY="${KAI_SCHEDULER_EVERY}"
-                                export KAI_SCHEDULER_ENABLED="${KAI_SCHEDULER_ENABLED}"
-                                
-                                chmod +x ${DEPLOY_PATH}/${DOCKER_DIR}/deploy.sh
-                                bash ${DEPLOY_PATH}/${DOCKER_DIR}/deploy.sh
-                            '
-                        """
-                    }
+                    echo "--- Menjalankan script deploy di server target ---"
+                    sh """
+                ssh -p ${SERVER_PORT} ${SERVER_USER}@${SERVER_IP} '
+                    export KAI_TELEGRAM_BOT_TOKEN="${KAI_TELEGRAM_BOT_TOKEN}"
+                    export KAI_DB_JDBC_URL="${KAI_DB_JDBC_URL}"
+                    # ... export variabel lainnya ...
+
+                    chmod +x ${DEPLOY_PATH}/docker/deploy.sh
+                    bash ${DEPLOY_PATH}/docker/deploy.sh
+                '
+            """
                 }
             }
         }
+
+        //stage('Deploy via SSH') {
+        //    steps {
+        //        sshagent(["${SSH_CREDENTIALS_ID}"]) {
+        //            script {
+        //                echo "Menyiapkan direktori di server: ${DEPLOY_PATH}"
+        //                sh "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'mkdir -p ${DEPLOY_PATH}/target ${DEPLOY_PATH}/${DOCKER_DIR}/base'"
+        //
+        //                echo "Mengirim file ke server..."
+        //                // Kirim file yang dibutuhkan untuk build docker
+        //                sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no target/*-runner.jar ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/target/"
+        //                sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
+        //                sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/docker-compose.yml ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
+        //                sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/base/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/base/"
+        //                sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/deploy.sh ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
+        //
+        //                echo "Menjalankan script deploy di server..."
+        //                sh """
+        //                    ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} '
+        //                        export KAI_TELEGRAM_BOT_TOKEN="${KAI_TELEGRAM_BOT_TOKEN}"
+        //                        export KAI_SUBSCRIPTION_PASSWORD="${KAI_SUBSCRIPTION_PASSWORD}"
+        //                        export KAI_DB_USERNAME="${KAI_DB_USERNAME}"
+        //                        export KAI_DB_PASSWORD="${KAI_DB_PASSWORD}"
+        //                        export KAI_DB_JDBC_URL="${KAI_DB_JDBC_URL}"
+        //                        export KAI_SCHEDULER_EVERY="${KAI_SCHEDULER_EVERY}"
+        //                        export KAI_SCHEDULER_ENABLED="${KAI_SCHEDULER_ENABLED}"
+        //
+        //                        chmod +x ${DEPLOY_PATH}/${DOCKER_DIR}/deploy.sh
+        //                        bash ${DEPLOY_PATH}/${DOCKER_DIR}/deploy.sh
+        //                    '
+        //                """
+        //            }
+        //        }
+        //    }
+        //}
     }
 
     post {
