@@ -60,11 +60,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    dir("${DOCKER_DIR}") {
-                        // Jalankan docker compose dari dalam direktori docker/
-                        // Menggunakan --no-build karena image sudah di-build di stage sebelumnya
-                        sh "docker compose up -d --no-build"
-                    }
+                    sh "docker compose docker/docker-compose.yml up -d --no-build"
                 }
             }
         }
