@@ -9,6 +9,7 @@ pipeline {
 
         SERVER_USER        = credentials('SERVER_USER')
         SERVER_IP          = credentials('SERVER_IP_G14')
+        SERVER_PORT        = '2222'
         DEPLOY_PATH        = "/home/${SERVER_USER}/${IMAGE_NAME}"
         SSH_CREDENTIALS_ID = 'ssh-server-credentials' // Gunakan ID string di sini jika menggunakan sshagent
 
@@ -42,19 +43,19 @@ pipeline {
                 sshagent(["${SSH_CREDENTIALS_ID}"]) {
                     script {
                         echo "Menyiapkan direktori di server: ${DEPLOY_PATH}"
-                        sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'mkdir -p ${DEPLOY_PATH}/target ${DEPLOY_PATH}/${DOCKER_DIR}/base'"
+                        sh "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'mkdir -p ${DEPLOY_PATH}/target ${DEPLOY_PATH}/${DOCKER_DIR}/base'"
 
                         echo "Mengirim file ke server..."
                         // Kirim file yang dibutuhkan untuk build docker
-                        sh "scp -o StrictHostKeyChecking=no target/*-runner.jar ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/target/"
-                        sh "scp -o StrictHostKeyChecking=no ${DOCKER_DIR}/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
-                        sh "scp -o StrictHostKeyChecking=no ${DOCKER_DIR}/docker-compose.yml ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
-                        sh "scp -o StrictHostKeyChecking=no ${DOCKER_DIR}/base/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/base/"
-                        sh "scp -o StrictHostKeyChecking=no ${DOCKER_DIR}/deploy.sh ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
+                        sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no target/*-runner.jar ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/target/"
+                        sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
+                        sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/docker-compose.yml ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
+                        sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/base/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/base/"
+                        sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/deploy.sh ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
 
                         echo "Menjalankan script deploy di server..."
                         sh """
-                            ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} '
+                            ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} '
                                 export KAI_TELEGRAM_BOT_TOKEN="${KAI_TELEGRAM_BOT_TOKEN}"
                                 export KAI_SUBSCRIPTION_PASSWORD="${KAI_SUBSCRIPTION_PASSWORD}"
                                 export KAI_DB_USERNAME="${KAI_DB_USERNAME}"
