@@ -60,7 +60,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    sh "docker compose docker/docker-compose.yml up -d --no-build"
+                    sh "docker compose docker/docker-compose.yml up -d --build"
                 }
             }
         }
