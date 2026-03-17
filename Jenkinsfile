@@ -7,10 +7,10 @@ pipeline {
         BASE_IMAGE = "kai-ticket-checker-base:latest"
         DOCKER_DIR = "docker"
 
-        SERVER_USER               = credentials('SERVER_USER')
-        SERVER_IP                 = credentials('SERVER_IP_G14')
-        DEPLOY_PATH               = "/home/${SERVER_USER}/${IMAGE_NAME}"
-        SSH_CREDENTIALS_ID        = credentials('SSH_CREDENTIALS_ID')
+        SERVER_USER        = credentials('SERVER_USER')
+        SERVER_IP          = credentials('SERVER_IP_G14')
+        DEPLOY_PATH        = "/home/${SERVER_USER}/${IMAGE_NAME}"
+        SSH_CREDENTIALS_ID = 'ssh-server-credentials' // Gunakan ID string di sini jika menggunakan sshagent
 
         KAI_TELEGRAM_BOT_TOKEN    = credentials('KAI_TELEGRAM_BOT_TOKEN')
         KAI_SUBSCRIPTION_PASSWORD = credentials('KAI_SUBSCRIPTION_PASSWORD')
@@ -37,35 +37,37 @@ pipeline {
             }
         }
 
-        stage('Ensure Base Image') {
+        stage('Deploy via SSH') {
             steps {
-                script {
-                    def baseImageExists = sh(script: "docker images -q ${BASE_IMAGE}", returnStdout: true).trim()
-                    
-                    if (!baseImageExists) {
-                        echo "Base image ${BASE_IMAGE} tidak ditemukan. Memulai build base image..."
-                        // Kita build dari root context karena biasanya lebih aman jika ada file yang dibutuhkan di luar folder base
-                        // Namun di sini base/Dockerfile cukup mandiri.
-                        sh "docker build -t ${BASE_IMAGE} -f ${DOCKER_DIR}/base/Dockerfile ."
-                    } else {
-                        echo "Base image ${BASE_IMAGE} sudah tersedia."
+                sshagent(["${SSH_CREDENTIALS_ID}"]) {
+                    script {
+                        echo "Menyiapkan direktori di server: ${DEPLOY_PATH}"
+                        sh "ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'mkdir -p ${DEPLOY_PATH}/target ${DEPLOY_PATH}/${DOCKER_DIR}/base'"
+
+                        echo "Mengirim file ke server..."
+                        // Kirim file yang dibutuhkan untuk build docker
+                        sh "scp -o StrictHostKeyChecking=no target/*-runner.jar ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/target/"
+                        sh "scp -o StrictHostKeyChecking=no ${DOCKER_DIR}/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
+                        sh "scp -o StrictHostKeyChecking=no ${DOCKER_DIR}/docker-compose.yml ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
+                        sh "scp -o StrictHostKeyChecking=no ${DOCKER_DIR}/base/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/base/"
+                        sh "scp -o StrictHostKeyChecking=no ${DOCKER_DIR}/deploy.sh ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
+
+                        echo "Menjalankan script deploy di server..."
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} '
+                                export KAI_TELEGRAM_BOT_TOKEN="${KAI_TELEGRAM_BOT_TOKEN}"
+                                export KAI_SUBSCRIPTION_PASSWORD="${KAI_SUBSCRIPTION_PASSWORD}"
+                                export KAI_DB_USERNAME="${KAI_DB_USERNAME}"
+                                export KAI_DB_PASSWORD="${KAI_DB_PASSWORD}"
+                                export KAI_DB_JDBC_URL="${KAI_DB_JDBC_URL}"
+                                export KAI_SCHEDULER_EVERY="${KAI_SCHEDULER_EVERY}"
+                                export KAI_SCHEDULER_ENABLED="${KAI_SCHEDULER_ENABLED}"
+                                
+                                chmod +x ${DEPLOY_PATH}/${DOCKER_DIR}/deploy.sh
+                                bash ${DEPLOY_PATH}/${DOCKER_DIR}/deploy.sh
+                            '
+                        """
                     }
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    sh "docker build --build-arg BASE_IMAGE=${BASE_IMAGE} -t ${IMAGE_NAME}:${IMAGE_TAG} -f ${DOCKER_DIR}/Dockerfile ."
-                }
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                script {
-                    sh "docker compose docker/docker-compose.yml up -d --build"
                 }
             }
         }
@@ -73,14 +75,7 @@ pipeline {
 
     post {
         always {
-            // Pembersihan artifact atau log jika diperlukan
-            echo 'Pipeline selesai dikerjakan.'
-        }
-        success {
-            echo 'Aplikasi berhasil di-deploy!'
-        }
-        failure {
-            echo 'Pipeline gagal. Silakan periksa log.'
+            cleanWs()
         }
     }
 }
