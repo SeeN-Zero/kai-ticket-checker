@@ -7,6 +7,11 @@ pipeline {
         BASE_IMAGE = "kai-ticket-checker-base:latest"
         DOCKER_DIR = "docker"
 
+        SERVER_USER               = credentials('SERVER_USER')
+        SERVER_IP                 = credentials('SERVER_IP_G14')
+        DEPLOY_PATH               = "/home/${SERVER_USER}/${IMAGE_NAME}"
+        SSH_CREDENTIALS_ID        = credentials('SSH_CREDENTIALS_ID')
+
         KAI_TELEGRAM_BOT_TOKEN    = credentials('KAI_TELEGRAM_BOT_TOKEN')
         KAI_SUBSCRIPTION_PASSWORD = credentials('KAI_SUBSCRIPTION_PASSWORD')
         KAI_DB_USERNAME           = credentials('KAI_DB_USERNAME')
@@ -24,6 +29,14 @@ pipeline {
             }
         }
 
+        stage('Build Package') {
+            steps {
+                sh 'sed -i "s/\\r$//" mvnw'
+                sh 'chmod +x mvnw'
+                sh './mvnw clean package -DskipTests'
+            }
+        }
+
         stage('Ensure Base Image') {
             steps {
                 script {
@@ -38,14 +51,6 @@ pipeline {
                         echo "Base image ${BASE_IMAGE} sudah tersedia."
                     }
                 }
-            }
-        }
-
-        stage('Build Artifact') {
-            steps {
-                sh 'sed -i "s/\\r$//" mvnw'
-                sh 'chmod +x mvnw'
-                sh './mvnw clean package -DskipTests'
             }
         }
 
