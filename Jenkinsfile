@@ -40,7 +40,7 @@ pipeline {
 
         stage('Deploy via SSH') {
             steps {
-                sshagent(["${SSH_CREDENTIALS_ID}"]) {
+                sshagent(['ssh-g14-credentials']) {
                     script {
                         echo "Menyiapkan direktori di server: ${DEPLOY_PATH}"
                         sh "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'mkdir -p ${DEPLOY_PATH}/target ${DEPLOY_PATH}/${DOCKER_DIR}/base'"
