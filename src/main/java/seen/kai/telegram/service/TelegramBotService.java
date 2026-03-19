@@ -10,6 +10,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
+import seen.kai.checker.service.KaiService;
 import seen.kai.checker.service.StationService;
 import seen.kai.subscription.dto.request.SubscriptionRequest;
 import seen.kai.subscription.dto.response.SubscriptionResponse;
@@ -52,6 +53,8 @@ public class TelegramBotService {
 
     @ConfigProperty(name = "kai.subscription.password", defaultValue = "")
     String subscriptionPassword;
+    @Inject
+    KaiService kaiService;
 
     public TelegramBotService(SubscriptionService subscriptionService, StationService stationService) {
         this.subscriptionService = subscriptionService;
@@ -445,6 +448,7 @@ public class TelegramBotService {
                             + "Max price: " + response.maxPrice(),
                     mainMenuKeyboard()
             );
+            kaiService.checkTicketFromDatabase(chatId);
         } catch (IllegalArgumentException e) {
             // Validation / business rule errors are shown to user.
             LOG.error("Gagal simpan ", e);

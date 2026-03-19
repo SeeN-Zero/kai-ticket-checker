@@ -159,7 +159,6 @@ public class StationService {
             LOG.warn("Stations list kosong dari KAI.");
             return Map.of();
         }
-        LOG.infof("Loaded %d stations from KAI.", byCode.size());
         return Map.copyOf(byCode);
     }
 

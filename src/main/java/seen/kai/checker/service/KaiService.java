@@ -66,8 +66,14 @@ public class KaiService {
     @ConfigProperty(name = "kai.cloudflare.retry-delay-seconds", defaultValue = "20")
     int cloudflareRetryDelaySeconds;
 
-    public void checkTicketFromDatabase() {
-        List<TicketSubscription> subscriptions = subscriptionService.findAllWithChats();
+    public void checkTicketFromDatabase(String chatId) {
+        List<TicketSubscription> subscriptions;
+        if (chatId.isBlank()) {
+            subscriptions = subscriptionService.findAllWithChats();
+        } else {
+            subscriptions = subscriptionService.findAllByChatId(chatId);
+        }
+
         if (subscriptions.isEmpty()) {
             LOG.info("Tidak ada subscription di database. Scheduler skip.");
             return;

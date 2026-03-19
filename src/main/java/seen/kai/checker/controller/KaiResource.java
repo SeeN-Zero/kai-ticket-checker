@@ -5,6 +5,8 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import seen.kai.checker.service.KaiService;
 
+import java.util.concurrent.CompletableFuture;
+
 @Path("/check")
 public class KaiResource {
     @Inject
@@ -12,7 +14,7 @@ public class KaiResource {
 
     @GET
     public String check() {
-        kaiService.checkTicketFromDatabase();
+        CompletableFuture.runAsync(() -> kaiService.checkTicketFromDatabase(""));
         return "Ticket check executed";
     }
 }
