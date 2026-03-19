@@ -14,10 +14,12 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -120,7 +122,7 @@ public class StationService {
                     return List.of();
                 }
 
-                List<Station> stations = new ArrayList<>();
+                Set<Station> stations = new HashSet<>();
                 for (JsonValue val : stationsArray) {
                     if (val.getValueType() == JsonValue.ValueType.OBJECT) {
                         JsonObject obj = val.asJsonObject();
