@@ -7,8 +7,8 @@ pipeline {
         BASE_IMAGE = "kai-ticket-checker-base:latest"
         DOCKER_DIR = "docker"
 
-        SERVER_USER        = credentials('SERVER_USER')
-        SERVER_IP          = credentials('SERVER_IP_G14')
+        SERVER_USER        = 'arranusa'
+        SERVER_IP          = '192.168.100.17'
         SERVER_PORT        = '2222'
         DEPLOY_PATH        = "/home/${SERVER_USER}/${IMAGE_NAME}"
         SSH_CREDENTIALS_ID = 'ssh-g14-credentials'
