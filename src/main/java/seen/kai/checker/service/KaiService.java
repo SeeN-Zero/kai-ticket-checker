@@ -467,7 +467,7 @@ public class KaiService {
         String normalizedName = stationName == null ? "" : stationName.trim();
 
         if (normalizedName.isBlank() && !normalizedCode.isBlank()) {
-            Station station = stationService.findByCode(normalizedCode).orElse(null);
+            Station station = stationService.findStationsByCode(normalizedCode).orElse(null);
             if (station != null && station.name() != null && !station.name().isBlank()) {
                 normalizedName = station.name().trim();
             }

@@ -1,6 +1,7 @@
 package seen.kai.telegram.state;
 
 import lombok.Data;
+import seen.kai.checker.service.StationService;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -14,9 +15,9 @@ public class SubscriptionDraft {
     private Integer startMonth;
     private LocalDate startDate;
     private LocalDate endDate;
-    private List<String> departureCity;
+    private List<StationService.Station> departureStations;
     private String origination;
-    private List<String> arrivalCity;
+    private List<StationService.Station> arrivalStations;
     private String destination;
     private Integer maxPrice;
 }

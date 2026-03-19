@@ -28,7 +28,15 @@ public class StationService {
     public StationService() {
     }
 
-    public Optional<Station> findByCode(String code) {
+    public List<String> findAllCityNames() {
+        return getAll().stream()
+                .map(Station::cityname)
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    public Optional<Station> findStationsByCode(String code) {
         String normalized = normalize(code);
         if (normalized == null) {
             return Optional.empty();
@@ -37,7 +45,7 @@ public class StationService {
         return Optional.ofNullable(stations.get(normalized));
     }
 
-    public Optional<Station> findByName(String name) {
+    public Optional<Station> findAllStationsByName(String name) {
         String normalized = normalize(name);
         if (normalized == null) {
             return Optional.empty();
@@ -52,14 +60,17 @@ public class StationService {
                 .collect(Collectors.toMap(Station::code, station -> station));
     }
 
-    public Station requireByCode(String code) {
-        return findByCode(code).orElseThrow(() -> new IllegalArgumentException("Kode stasiun tidak ditemukan: " + code));
+    public Station requireByName(String name) {
+        return findAllStationsByName(name).orElseThrow(() -> new IllegalArgumentException("Stasiun tidak ditemukan: " + name));
     }
 
-    public List<String> findStationNamesByCityName(String cityName) {
+    public Station requireByCode(String code) {
+        return findStationsByCode(code).orElseThrow(() -> new IllegalArgumentException("Kode stasiun tidak ditemukan: " + code));
+    }
+
+    public List<Station> findStationNamesByCityName(String cityName) {
        var list = getAll().stream()
                 .filter(station -> station.cityname().contains(cityName.trim()))
-                .map(Station::name)
                 .collect(Collectors.toList());
        LOG.infof("Found %d stations in %s", list.size(), cityName);
        return list;
@@ -121,6 +132,7 @@ public class StationService {
                         ));
                     }
                 }
+                LOG.infof("Loaded %d stations from KAI.", stations.size());
                 return List.copyOf(stations);
             }
         } catch (Exception e) {
