@@ -26,6 +26,7 @@ import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
@@ -33,7 +34,7 @@ import java.util.regex.Pattern;
 public class TelegramBotService {
     private static final Logger LOG = Logger.getLogger(TelegramBotService.class);
     private static final Pattern DIGITS_ONLY = Pattern.compile("^\\d+$");
-    private static final List<String> COMMON_STATIONS = List.of("KM", "PSE", "GMR");
+    private static final List<String> COMMON_STATIONS = List.of("KEBUMEN", "PASARSENEN", "GAMBIR");
     private static final List<String> COMMON_CITIES = List.of("KEBUMEN", "YOGYAKARTA", "JAKARTA", "SURABAYA");
     private static final Locale ID_LOCALE = Locale.forLanguageTag("id-ID");
     private static final DateTimeFormatter DISPLAY_DATE = DateTimeFormatter.ofPattern("d MMM", ID_LOCALE);
@@ -188,7 +189,7 @@ public class TelegramBotService {
             List<String> stationNames = stationService.findStationNamesByCityName(city);
             draft.setDepartureCity(stationNames);
             draft.setState(BotState.WAITING_ORIGINATION);
-            editMessage(chatId, messageId, "Pilih Stasiun Keberangkatan :", stationKeyboard("org"));
+            editMessage(chatId, messageId, "Pilih Stasiun Keberangkatan :", stationKeyboard("org", stationNames));
             return;
         }
 
@@ -215,7 +216,7 @@ public class TelegramBotService {
             List<String> stationNames = stationService.findStationNamesByCityName(city);
             draft.setArrivalCity(stationNames);
             draft.setState(BotState.WAITING_DESTINATION);
-            editMessage(chatId, messageId, "Pilih Stasiun Tujuan :", stationKeyboard("dst"));
+            editMessage(chatId, messageId, "Pilih Stasiun Tujuan :", stationKeyboard("dst", stationNames));
             return;
         }
 
@@ -402,7 +403,7 @@ public class TelegramBotService {
             }
             draft.setOrigination(resolved.code());
             draft.setState(BotState.WAITING_DESTINATION);
-            sendMessage(chatId, "Pilih destination:", stationKeyboard("dst"));
+            sendMessage(chatId, "Pilih destination:", stationKeyboard("dst", stationNames));
             return;
         }
 
@@ -604,18 +605,30 @@ public class TelegramBotService {
     }
 
     // Station selection keyboard. "prefix" controls whether buttons write org:* or dst:* callback data.
-    private InlineKeyboardMarkup stationKeyboard(String prefix) {
+    private InlineKeyboardMarkup stationKeyboard(String prefix, List<String> stationNames) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         InlineKeyboardRow row = new InlineKeyboardRow();
-        for (int i = 0; i < COMMON_STATIONS.size(); i++) {
-            String code = COMMON_STATIONS.get(i);
-            row.add(button(code, prefix + ":" + code));
-            // End row after 3 buttons or after the last station.
-            if (row.size() == 3 || i == COMMON_STATIONS.size() - 1) {
-                rows.add(row);
-                row = new InlineKeyboardRow();
+
+        if (stationNames != null && !stationNames.isEmpty()) {
+            for (String name : stationNames) {
+                row.add(button(name, prefix + ":" + name));
+                if (Objects.equals(name, stationNames.getLast())) {
+                    rows.add(row);
+                    row = new InlineKeyboardRow();
+                }
+            }
+        } else {
+            for (int i = 0; i < COMMON_STATIONS.size(); i++) {
+                String code = COMMON_STATIONS.get(i);
+                row.add(button(code, prefix + ":" + code));
+                // End row after 3 buttons or after the last station.
+                if (row.size() == 3 || i == COMMON_STATIONS.size() - 1) {
+                    rows.add(row);
+                    row = new InlineKeyboardRow();
+                }
             }
         }
+
         rows.add(row(button("Input Manual", prefix + ":manual")));
         rows.add(row(button("Batal", "act:cancel")));
         return keyboard(rows);
