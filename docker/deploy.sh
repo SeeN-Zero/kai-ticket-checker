@@ -26,5 +26,6 @@ docker compose -f "${DOCKER_DIR}/docker-compose.yml" build --build-arg BASE_IMAG
 # 3. Restart Container
 echo "Merestart container menggunakan Docker Compose..."
 docker compose -f "${DOCKER_DIR}/docker-compose.yml" up -d
+docker image prune -a -f
 
 echo "=== Proses selesai ==="
