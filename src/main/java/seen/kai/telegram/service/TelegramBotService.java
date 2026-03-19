@@ -411,49 +411,77 @@ public class TelegramBotService {
             List<StationService.Station> stations = stationService.findStationNamesByCityName(cityName);
             draft.setDepartureStations(stations);
             draft.setState(BotState.WAITING_ORIGINATION);
-            sendMessage(chatId, "Pilih Stasiun Asal:", stationKeyboard("dst", stations));
+            sendMessage(chatId, "Pilih Stasiun Asal:", stationKeyboard("org", stations));
             return;
         }
 
-        // Manual origination code entry.
-        if (draft.getState() == BotState.WAITING_ORIGINATION_TEXT) {
-            String stationName = normalizeStation(text);
-            // Station code must be short and non-empty (format validation).
-            if (stationName == null) {
-                sendMessage(chatId, "Nama Stasiun tidak valid.", null);
+        // Manual arrival city entry.
+        if (draft.getState() == BotState.WAITING_ARRIVAL_CITY_TEXT) {
+            String cityName = normalizeStation(text);
+            // City name must be short and non-empty (format validation).
+            if (cityName == null) {
+                sendMessage(chatId, "Nama Kota tidak valid.", null);
                 return;
             }
-            StationService.Station resolved = stationService.findAllStationsByName(stationName).orElse(null);
-            // Station code must exist in our known station list.
-            if (resolved == null) {
-                sendMessage(chatId, "Nama Stasiun tidak ditemukan di KAI (api/stations2).", null);
+
+            List<String> cityNames = stationService.findAllCityNames()
+                    .stream()
+                    .filter(city -> city.contains(cityName))
+                    .toList();
+
+            if (cityNames.isEmpty()) {
+                String errorMessage = String.format("%s %s %s. %s", "Nama Kota ", cityName, " tidak ditemukan di KAI.", "Ketik ulang atau pilih yang tersedia");
+                draft.setState(BotState.WAITING_ARRIVAL_CITY);
+                sendMessage(chatId, errorMessage, cityKeyboard("acity"));
                 return;
             }
-            draft.setOrigination(resolved.code());
-            draft.setState(BotState.WAITING_DESTINATION);
-            sendMessage(chatId, "Pilih Stasiun Tujuan:", stationKeyboard("dst", null));
+
+            List<StationService.Station> stations = stationService.findStationNamesByCityName(cityName);
+            draft.setDepartureStations(stations);
+            draft.setState(BotState.WAITING_ORIGINATION);
+            sendMessage(chatId, "Pilih Stasiun Asal:", stationKeyboard("org", stations));
             return;
         }
+
+//        // Manual origination code entry.
+//        if (draft.getState() == BotState.WAITING_ORIGINATION_TEXT) {
+//            String stationName = normalizeStation(text);
+//            // Station name must be short and non-empty (format validation).
+//            if (stationName == null) {
+//                sendMessage(chatId, "Nama Stasiun tidak valid.", stationKeyboard("org", null));
+//                return;
+//            }
+//            StationService.Station resolved = stationService.findAllStationsByName(stationName).orElse(null);
+//            // Station must exist in our known station list.
+//            if (resolved == null) {
+//                sendMessage(chatId, "Nama Stasiun tidak ditemukan di KAI (api/stations2).", null);
+//                return;
+//            }
+//            draft.setOrigination(resolved.code());
+//            draft.setState(BotState.WAITING_DESTINATION);
+//            sendMessage(chatId, "Pilih Stasiun Tujuan:", stationKeyboard("dst", null));
+//            return;
+//        }
 
         // Manual destination code entry.
-        if (draft.getState() == BotState.WAITING_DESTINATION_TEXT) {
-            String stationName = normalizeStation(text);
-            // Station code must be short and non-empty (format validation).
-            if (stationName == null) {
-                sendMessage(chatId, "Nama Stasiun tidak valid.", null);
-                return;
-            }
-            StationService.Station resolved = stationService.findAllStationsByName(stationName).orElse(null);
-            // Station code must exist in our known station list.
-            if (resolved == null) {
-                sendMessage(chatId, "Nama Stasiun tidak ditemukan di KAI (api/stations2).", null);
-                return;
-            }
-            draft.setDestination(resolved.code());
-            draft.setState(BotState.WAITING_MAX_PRICE);
-            sendMessage(chatId, "Pilih maksimal harga (atau ketik angka):", maxPriceKeyboard());
-            return;
-        }
+//        if (draft.getState() == BotState.WAITING_DESTINATION_TEXT) {
+//            String stationName = normalizeStation(text);
+//            // Station code must be short and non-empty (format validation).
+//            if (stationName == null) {
+//                sendMessage(chatId, "Nama Stasiun tidak valid.", null);
+//                return;
+//            }
+//            StationService.Station resolved = stationService.findAllStationsByName(stationName).orElse(null);
+//            // Station code must exist in our known station list.
+//            if (resolved == null) {
+//                sendMessage(chatId, "Nama Stasiun tidak ditemukan di KAI (api/stations2).", null);
+//                return;
+//            }
+//            draft.setDestination(resolved.code());
+//            draft.setState(BotState.WAITING_MAX_PRICE);
+//            sendMessage(chatId, "Pilih maksimal harga (atau ketik angka):", maxPriceKeyboard());
+//            return;
+//        }
 
         // Manual max price entry: only accept digits when we're waiting for max price.
         if (draft.getState() == BotState.WAITING_MAX_PRICE && DIGITS_ONLY.matcher(text).matches()) {
@@ -657,7 +685,7 @@ public class TelegramBotService {
             }
         }
 
-        rows.add(row(button("Input Manual", prefix + ":manual")));
+//        rows.add(row(button("Input Manual", prefix + ":manual")));
         rows.add(row(button("Batal", "act:cancel")));
         return keyboard(rows);
     }
