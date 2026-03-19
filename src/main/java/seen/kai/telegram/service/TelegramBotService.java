@@ -122,6 +122,14 @@ public class TelegramBotService {
         if (draft == null) return;
 
         switch (callbackData) {
+            case "back:month" -> {
+                draft.setState(BotState.WAITING_START_MONTH);
+                editMessage(chatId, messageId, "Pilih bulan mulai:", monthKeyboard());
+            }
+            case "back:sd" -> {
+                draft.setState(BotState.WAITING_START_DATE);
+                editMessage(chatId, messageId, "Pilih tanggal mulai:", startDateKeyboardForMonth(draft.getStartMonth(), "back:month"));
+            }
             case "back:org" -> {
                 draft.setState(BotState.WAITING_DEPARTURE_CITY);
                 editMessage(chatId, messageId, "Pilih Kota Asal :", cityKeyboard("dcity", "back:ed"));
@@ -132,7 +140,7 @@ public class TelegramBotService {
             }
             case "back:ed" -> {
                 draft.setState(BotState.WAITING_END_DATE);
-                editMessage(chatId, messageId, "Pilih tanggal akhir (maks 5 hari):", endDateKeyboard(draft.getStartDate()));
+                editMessage(chatId, messageId, "Pilih tanggal akhir (maks 5 hari):", endDateKeyboard(draft.getStartDate(), "back:sd"));
             }
             case "back:org_select" -> {
                 draft.setState(BotState.WAITING_ORIGINATION);
@@ -180,7 +188,7 @@ public class TelegramBotService {
         }
         draft.setStartMonth(month);
         draft.setState(BotState.WAITING_START_DATE);
-        editMessage(chatId, messageId, "Pilih tanggal mulai:", startDateKeyboardForMonth(month));
+        editMessage(chatId, messageId, "Pilih tanggal mulai:", startDateKeyboardForMonth(month, "back:month"));
     }
 
     private void handleStartDateSelection(String chatId, Integer messageId, SubscriptionDraft draft, String data) {
@@ -191,7 +199,7 @@ public class TelegramBotService {
         }
         draft.setStartDate(startDate);
         draft.setState(BotState.WAITING_END_DATE);
-        editMessage(chatId, messageId, "Pilih tanggal akhir (maks 5 hari):", endDateKeyboard(startDate));
+        editMessage(chatId, messageId, "Pilih tanggal akhir (maks 5 hari):", endDateKeyboard(startDate, "back:sd"));
     }
 
     private void handleEndDateSelection(String chatId, Integer messageId, SubscriptionDraft draft, String data) {
@@ -202,7 +210,7 @@ public class TelegramBotService {
             return;
         }
         if (endDate.isBefore(startDate) || endDate.isAfter(startDate.plusDays(5)) || endDate.getYear() != LocalDate.now().getYear()) {
-            editMessage(chatId, messageId, "Tanggal akhir harus dalam rentang 0..5 hari dari tanggal mulai.", endDateKeyboard(startDate));
+            editMessage(chatId, messageId, "Tanggal akhir harus dalam rentang 0..5 hari dari tanggal mulai.", endDateKeyboard(startDate, "back:sd"));
             return;
         }
         draft.setEndDate(endDate);
@@ -497,7 +505,7 @@ public class TelegramBotService {
     }
 
     // Start date selection keyboard for a given month.
-    private InlineKeyboardMarkup startDateKeyboardForMonth(int month) {
+    private InlineKeyboardMarkup startDateKeyboardForMonth(int month, String backState) {
         int year = LocalDate.now().getYear();
         YearMonth targetMonth = YearMonth.of(year, month);
         int daysInMonth = targetMonth.lengthOfMonth();
@@ -519,12 +527,15 @@ public class TelegramBotService {
         if (!currentRow.isEmpty()) {
             rows.add(currentRow);
         }
+        if (backState != null && !backState.isBlank()) {
+            rows.add(row(button("Kembali", backState)));
+        }
         rows.add(row(button("Batal", "act:cancel")));
         return keyboard(rows);
     }
 
     // End date selection keyboard: allows 0..5 days starting from the chosen start date.
-    private InlineKeyboardMarkup endDateKeyboard(LocalDate startDate) {
+    private InlineKeyboardMarkup endDateKeyboard(LocalDate startDate, String backState) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         InlineKeyboardRow row = new InlineKeyboardRow();
         int year = LocalDate.now().getYear();
@@ -545,6 +556,9 @@ public class TelegramBotService {
         // Add any remaining buttons that didn't fill a full row.
         if (!row.isEmpty()) {
             rows.add(row);
+        }
+        if (backState != null && !backState.isBlank()) {
+            rows.add(row(button("Kembali", backState)));
         }
         rows.add(row(button("Batal", "act:cancel")));
         return keyboard(rows);
