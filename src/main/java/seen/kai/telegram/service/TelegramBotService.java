@@ -389,41 +389,41 @@ public class TelegramBotService {
 
         // Manual origination code entry.
         if (draft.getState() == BotState.WAITING_ORIGINATION_TEXT) {
-            String station = normalizeStation(text);
+            String stationName = normalizeStation(text);
             // Station code must be short and non-empty (format validation).
-            if (station == null) {
-                sendMessage(chatId, "Kode origination tidak valid.", null);
+            if (stationName == null) {
+                sendMessage(chatId, "Nama Stasiun tidak valid.", null);
                 return;
             }
-            StationService.Station resolved = stationService.findByCode(station).orElse(null);
+            StationService.Station resolved = stationService.findByName(stationName).orElse(null);
             // Station code must exist in our known station list.
             if (resolved == null) {
-                sendMessage(chatId, "Kode origination tidak ditemukan di KAI (api/stations2).", null);
+                sendMessage(chatId, "Nama Stasiun tidak ditemukan di KAI (api/stations2).", null);
                 return;
             }
             draft.setOrigination(resolved.code());
             draft.setState(BotState.WAITING_DESTINATION);
-            sendMessage(chatId, "Pilih destination:", stationKeyboard("dst", stationNames));
+            sendMessage(chatId, "Pilih Stasiun Tujuan:", stationKeyboard("dst", null));
             return;
         }
 
         // Manual destination code entry.
         if (draft.getState() == BotState.WAITING_DESTINATION_TEXT) {
-            String station = normalizeStation(text);
+            String stationName = normalizeStation(text);
             // Station code must be short and non-empty (format validation).
-            if (station == null) {
-                sendMessage(chatId, "Kode destination tidak valid.", null);
+            if (stationName == null) {
+                sendMessage(chatId, "Nama Stasiun tidak valid.", null);
                 return;
             }
-            StationService.Station resolved = stationService.findByCode(station).orElse(null);
+            StationService.Station resolved = stationService.findByName(stationName).orElse(null);
             // Station code must exist in our known station list.
             if (resolved == null) {
-                sendMessage(chatId, "Kode destination tidak ditemukan di KAI (api/stations2).", null);
+                sendMessage(chatId, "Nama Stasiun tidak ditemukan di KAI (api/stations2).", null);
                 return;
             }
             draft.setDestination(resolved.code());
             draft.setState(BotState.WAITING_MAX_PRICE);
-            sendMessage(chatId, "Pilih max price (atau ketik angka):", maxPriceKeyboard());
+            sendMessage(chatId, "Pilih maksimal harga (atau ketik angka):", maxPriceKeyboard());
             return;
         }
 
