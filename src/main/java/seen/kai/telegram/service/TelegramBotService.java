@@ -398,13 +398,13 @@ public class TelegramBotService {
 
             List<String> cityNames = stationService.findAllCityNames()
                     .stream()
-                    .filter(city -> city.contentEquals(cityName))
+                    .filter(city -> city.contains(cityName))
                     .toList();
 
             if (cityNames.isEmpty()) {
                 String errorMessage = String.format("%s %s %s. %s", "Nama Kota ", cityName, " tidak ditemukan di KAI.", "Ketik ulang atau pilih yang tersedia");
                 draft.setState(BotState.WAITING_DEPARTURE_CITY);
-                sendMessage(chatId, errorMessage, null);
+                sendMessage(chatId, errorMessage, cityKeyboard("dcity"));
                 return;
             }
 
@@ -621,8 +621,8 @@ public class TelegramBotService {
         for (int i = 0; i < COMMON_CITIES.size(); i++) {
             String code = COMMON_CITIES.get(i);
             row.add(button(code, prefix + ":" + code));
-            // End row after 3 buttons or after the last station.
-            if (row.size() == 3 || i == COMMON_CITIES.size() - 1) {
+            // End row after 2 buttons or after the last station.
+            if (row.size() == 2 || i == COMMON_CITIES.size() - 1) {
                 rows.add(row);
                 row = new InlineKeyboardRow();
             }
@@ -649,8 +649,8 @@ public class TelegramBotService {
             for (int i = 0; i < COMMON_STATIONS.size(); i++) {
                 String code = COMMON_STATIONS.get(i);
                 row.add(button(code, prefix + ":" + code));
-                // End row after 3 buttons or after the last station.
-                if (row.size() == 3 || i == COMMON_STATIONS.size() - 1) {
+                // End row after 2 buttons or after the last station.
+                if (row.size() == 2 || i == COMMON_STATIONS.size() - 1) {
                     rows.add(row);
                     row = new InlineKeyboardRow();
                 }
