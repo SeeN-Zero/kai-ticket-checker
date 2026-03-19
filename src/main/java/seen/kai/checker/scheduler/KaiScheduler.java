@@ -35,7 +35,7 @@ public class KaiScheduler {
         Thread.startVirtualThread(() -> {
             try {
                 LOG.info("Checking ticket from database subscriptions...");
-                kaiService.checkTicketFromDatabase();
+                kaiService.checkTicketFromDatabase("");
             } finally {
                 running.set(false);
             }
