@@ -447,6 +447,7 @@ public class TelegramBotService {
             );
         } catch (IllegalArgumentException e) {
             // Validation / business rule errors are shown to user.
+            LOG.error("Gagal simpan ", e);
             editMessage(chatId, messageId, "Gagal simpan: " + e.getMessage(), confirmationKeyboard("back:mp_select"));
         } catch (Exception e) {
             // Unexpected errors should be logged server-side; user gets a generic message.
