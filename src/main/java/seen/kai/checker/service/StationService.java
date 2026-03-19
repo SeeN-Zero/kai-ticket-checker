@@ -57,10 +57,12 @@ public class StationService {
     }
 
     public List<String> findStationNamesByCityName(String cityName) {
-        return getAll().stream()
-                .filter(station -> station.cityname().equalsIgnoreCase(cityName))
+       var list = getAll().stream()
+                .filter(station -> station.cityname().contains(cityName.trim()))
                 .map(Station::name)
                 .collect(Collectors.toList());
+       LOG.infof("Found %d stations in %s", list.size(), cityName);
+       return list;
     }
 
     @CacheResult(cacheName = "stations-cache")
