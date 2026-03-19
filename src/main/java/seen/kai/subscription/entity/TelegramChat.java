@@ -11,7 +11,12 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
+import lombok.Getter;
+import lombok.Setter;
+
 @Entity
+@Getter
+@Setter
 @Table(
         name = "telegram_chats",
         uniqueConstraints = @UniqueConstraint(name = "uk_telegram_chat_id", columnNames = "chat_id")
@@ -19,6 +24,7 @@ import jakarta.persistence.UniqueConstraint;
 public class TelegramChat {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Setter(lombok.AccessLevel.NONE)
     private Long id;
 
     @Column(name = "chat_id", nullable = false, length = 100)
@@ -27,24 +33,4 @@ public class TelegramChat {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ticket_subscription_id")
     private TicketSubscription subscription;
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getChatId() {
-        return chatId;
-    }
-
-    public void setChatId(String chatId) {
-        this.chatId = chatId;
-    }
-
-    public TicketSubscription getSubscription() {
-        return subscription;
-    }
-
-    public void setSubscription(TicketSubscription subscription) {
-        this.subscription = subscription;
-    }
 }

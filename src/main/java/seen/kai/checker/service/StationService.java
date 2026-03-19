@@ -1,42 +1,35 @@
 package seen.kai.checker.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.cache.CacheResult;
 import jakarta.enterprise.context.ApplicationScoped;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
+import jakarta.json.Json;
+import jakarta.json.JsonArray;
+import jakarta.json.JsonObject;
+import jakarta.json.JsonReader;
+import jakarta.json.JsonValue;
 import org.jboss.logging.Logger;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class StationService {
     private static final Logger LOG = Logger.getLogger(StationService.class);
     private static final URI STATIONS_URI = URI.create("https://booking.kai.id/api/stations2");
 
-    private final ObjectMapper objectMapper;
-
-    @ConfigProperty(name = "kai.stations.cache-ttl-seconds", defaultValue = "86400")
-    long cacheTtlSeconds;
-
-    private volatile Cache cache = new Cache(Collections.emptyMap(), Instant.EPOCH);
-
-    public StationService(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    public StationService() {
     }
 
     public Optional<Station> findByCode(String code) {
-        String normalized = normalizeCode(code);
+        String normalized = normalize(code);
         if (normalized == null) {
             return Optional.empty();
         }
@@ -44,28 +37,34 @@ public class StationService {
         return Optional.ofNullable(stations.get(normalized));
     }
 
+    public Optional<Station> findByName(String name) {
+        String normalized = normalize(name);
+        if (normalized == null) {
+            return Optional.empty();
+        }
+        Map<String, Station> stations = getStationsByName(name);
+        return Optional.ofNullable(stations.get(normalized));
+    }
+
+    private Map<String, Station> getStationsByName(String name) {
+        return getAll().stream()
+                .filter(station -> station.name().equalsIgnoreCase(name))
+                .collect(Collectors.toMap(Station::code, station -> station));
+    }
+
     public Station requireByCode(String code) {
         return findByCode(code).orElseThrow(() -> new IllegalArgumentException("Kode stasiun tidak ditemukan: " + code));
     }
 
-    private Map<String, Station> getStationsByCode() {
-        Cache current = cache;
-        Instant now = Instant.now();
-        if (Duration.between(current.fetchedAt(), now).getSeconds() <= cacheTtlSeconds && !current.byCode().isEmpty()) {
-            return current.byCode();
-        }
-        synchronized (this) {
-            Cache afterLock = cache;
-            if (Duration.between(afterLock.fetchedAt(), now).getSeconds() <= cacheTtlSeconds && !afterLock.byCode().isEmpty()) {
-                return afterLock.byCode();
-            }
-            Cache refreshed = fetchStationsBestEffort(afterLock);
-            cache = refreshed;
-            return refreshed.byCode();
-        }
+    public List<String> findStationNamesByCityName(String cityName) {
+        return getAll().stream()
+                .filter(station -> station.cityname().equalsIgnoreCase(cityName))
+                .map(Station::name)
+                .collect(Collectors.toList());
     }
 
-    private Cache fetchStationsBestEffort(Cache fallback) {
+    @CacheResult(cacheName = "stations-cache")
+    public List<Station> getAll() {
         try {
             HttpURLConnection connection = (HttpURLConnection) STATIONS_URI.toURL().openConnection();
             connection.setRequestMethod("POST");
@@ -80,47 +79,76 @@ public class StationService {
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) {
                 LOG.warnf("Gagal fetch stations KAI. status=%d", status);
-                return fallback;
+                return List.of();
             }
 
-            try (InputStream in = connection.getInputStream()) {
-                JsonNode root = objectMapper.readTree(in);
-                JsonNode stationsNode = root;
-                if (root != null && root.isObject() && root.hasNonNull("value")) {
-                    stationsNode = root.get("value");
-                }
-                if (stationsNode == null || !stationsNode.isArray()) {
-                    LOG.warn("Format stations KAI tidak sesuai (bukan array), memakai cache lama.");
-                    return fallback;
+            try (InputStream in = connection.getInputStream(); JsonReader reader = Json.createReader(in)) {
+                JsonValue root = reader.read();
+                JsonArray stationsArray;
+
+                if (root.getValueType() == JsonValue.ValueType.OBJECT) {
+                    JsonObject rootObj = root.asJsonObject();
+                    if (rootObj.containsKey("value") && !rootObj.isNull("value")) {
+                        JsonValue value = rootObj.get("value");
+                        if (value.getValueType() == JsonValue.ValueType.ARRAY) {
+                            stationsArray = value.asJsonArray();
+                        } else {
+                            LOG.warn("Format stations KAI tidak sesuai (value bukan array).");
+                            return List.of();
+                        }
+                    } else {
+                        LOG.warn("Format stations KAI tidak sesuai (objek tanpa value).");
+                        return List.of();
+                    }
+                } else if (root.getValueType() == JsonValue.ValueType.ARRAY) {
+                    stationsArray = root.asJsonArray();
+                } else {
+                    LOG.warn("Format stations KAI tidak sesuai (bukan array atau objek).");
+                    return List.of();
                 }
 
-                List<Station> stations = objectMapper.convertValue(stationsNode, new TypeReference<>() {
-                });
-                Map<String, Station> byCode = new HashMap<>();
-                for (Station station : stations) {
-                    if (station == null) {
-                        continue;
+                List<Station> stations = new ArrayList<>();
+                for (JsonValue val : stationsArray) {
+                    if (val.getValueType() == JsonValue.ValueType.OBJECT) {
+                        JsonObject obj = val.asJsonObject();
+                        stations.add(new Station(
+                                obj.getString("code", null),
+                                obj.getString("name", null),
+                                obj.getString("city", null),
+                                obj.getString("cityname", null)
+                        ));
                     }
-                    String normalized = normalizeCode(station.code());
-                    if (normalized == null) {
-                        continue;
-                    }
-                    byCode.put(normalized, station);
                 }
-                if (byCode.isEmpty()) {
-                    LOG.warn("Stations list kosong dari KAI, memakai cache lama.");
-                    return fallback;
-                }
-                LOG.infof("Loaded %d stations from KAI.", byCode.size());
-                return new Cache(Collections.unmodifiableMap(byCode), Instant.now());
+                return List.copyOf(stations);
             }
         } catch (Exception e) {
-            LOG.warn("Gagal fetch stations KAI, memakai cache lama.", e);
-            return fallback;
+            LOG.warn("Gagal fetch stations KAI.", e);
+            return List.of();
         }
     }
 
-    private String normalizeCode(String code) {
+    public Map<String, Station> getStationsByCode() {
+        List<Station> stations = this.getAll();
+        Map<String, Station> byCode = new HashMap<>();
+        for (Station station : stations) {
+            if (station == null) {
+                continue;
+            }
+            String normalized = normalize(station.code());
+            if (normalized == null) {
+                continue;
+            }
+            byCode.put(normalized, station);
+        }
+        if (byCode.isEmpty()) {
+            LOG.warn("Stations list kosong dari KAI.");
+            return Map.of();
+        }
+        LOG.infof("Loaded %d stations from KAI.", byCode.size());
+        return Map.copyOf(byCode);
+    }
+
+    private String normalize(String code) {
         if (code == null) {
             return null;
         }
@@ -129,8 +157,5 @@ public class StationService {
     }
 
     public record Station(String code, String name, String city, String cityname) {
-    }
-
-    private record Cache(Map<String, Station> byCode, Instant fetchedAt) {
     }
 }

@@ -34,6 +34,7 @@ public class TelegramBotService {
     private static final Logger LOG = Logger.getLogger(TelegramBotService.class);
     private static final Pattern DIGITS_ONLY = Pattern.compile("^\\d+$");
     private static final List<String> COMMON_STATIONS = List.of("KM", "PSE", "GMR");
+    private static final List<String> COMMON_CITIES = List.of("KEBUMEN", "YOGYAKARTA", "JAKARTA", "SURABAYA");
     private static final Locale ID_LOCALE = Locale.forLanguageTag("id-ID");
     private static final DateTimeFormatter DISPLAY_DATE = DateTimeFormatter.ofPattern("d MMM", ID_LOCALE);
 
@@ -169,41 +170,69 @@ public class TelegramBotService {
                 return;
             }
             draft.setEndDate(endDate);
+            draft.setState(BotState.WAITING_DEPARTURE_CITY);
+            editMessage(chatId, messageId, "Pilih Kota Asal :", cityKeyboard("dcity"));
+            return;
+        }
+
+        // Switch city input to manual text.
+        if ("dcity:manual".equals(callbackData)) {
+            draft.setState(BotState.WAITING_DEPARTURE_CITY_TEXT);
+            editMessage(chatId, messageId, "Ketik Kota Asal (contoh: YOGYAKARTA).", null);
+            return;
+        }
+
+        // Departure city selection from buttons.
+        if (callbackData.startsWith("dcity:")) {
+            String city = callbackData.substring(6).trim().toUpperCase(Locale.ROOT);
+            List<String> stationNames = stationService.findStationNamesByCityName(city);
+            draft.setDepartureCity(stationNames);
             draft.setState(BotState.WAITING_ORIGINATION);
-            editMessage(chatId, messageId, "Pilih origination:", stationKeyboard("org"));
+            editMessage(chatId, messageId, "Pilih Stasiun Keberangkatan :", stationKeyboard("org"));
             return;
         }
 
         // Switch origination input to manual text.
         if ("org:manual".equals(callbackData)) {
             draft.setState(BotState.WAITING_ORIGINATION_TEXT);
-            editMessage(chatId, messageId, "Ketik kode origination manual (contoh: KM).", null);
+            editMessage(chatId, messageId, "Ketik Stasiun Keberangkatan (contoh: KEBUMEN, LEMPUYANGAN, PASARSENEN).", null);
             return;
         }
 
         // Origination selection from buttons.
         if (callbackData.startsWith("org:")) {
             String code = callbackData.substring(4).trim().toUpperCase(Locale.ROOT);
-            StationService.Station station = stationService.findByCode(code).orElse(null);
+            StationService.Station station = stationService.findByName(code).orElse(null);
             draft.setOrigination(station != null ? station.code() : code);
+            draft.setState(BotState.WAITING_ARRIVAL_CITY);
+            editMessage(chatId, messageId, "Pilih Stasiun Tujuan :", cityKeyboard("acity"));
+            return;
+        }
+
+        // Arrival city selection from buttons.
+        if (callbackData.startsWith("acity:")) {
+            String city = callbackData.substring(6).trim().toUpperCase(Locale.ROOT);
+            List<String> stationNames = stationService.findStationNamesByCityName(city);
+            draft.setArrivalCity(stationNames);
             draft.setState(BotState.WAITING_DESTINATION);
-            editMessage(chatId, messageId, "Pilih destination:", stationKeyboard("dst"));
+            editMessage(chatId, messageId, "Pilih Stasiun Tujuan :", stationKeyboard("dst"));
             return;
         }
 
         // Switch destination input to manual text.
         if ("dst:manual".equals(callbackData)) {
             draft.setState(BotState.WAITING_DESTINATION_TEXT);
-            editMessage(chatId, messageId, "Ketik kode destination manual (contoh: PSE).", null);
+            editMessage(chatId, messageId, "Ketik Stasiun Tujuan (contoh: PASARSENEN, GAMBIR, LEMPUYANGAN).", null);
             return;
         }
+
         // Destination selection from buttons.
         if (callbackData.startsWith("dst:")) {
             String code = callbackData.substring(4).trim().toUpperCase(Locale.ROOT);
-            StationService.Station station = stationService.findByCode(code).orElse(null);
+            StationService.Station station = stationService.findByName(code).orElse(null);
             draft.setDestination(station != null ? station.code() : code);
             draft.setState(BotState.WAITING_MAX_PRICE);
-            editMessage(chatId, messageId, "Pilih max price:", maxPriceKeyboard());
+            editMessage(chatId, messageId, "Pilih maksimal harga :", maxPriceKeyboard());
             return;
         }
 
@@ -553,6 +582,23 @@ public class TelegramBotService {
         if (!row.isEmpty()) {
             rows.add(row);
         }
+        rows.add(row(button("Batal", "act:cancel")));
+        return keyboard(rows);
+    }
+
+    private InlineKeyboardMarkup cityKeyboard(String prefix) {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        InlineKeyboardRow row = new InlineKeyboardRow();
+        for (int i = 0; i < COMMON_CITIES.size(); i++) {
+            String code = COMMON_CITIES.get(i);
+            row.add(button(code, prefix + ":" + code));
+            // End row after 3 buttons or after the last station.
+            if (row.size() == 3 || i == COMMON_CITIES.size() - 1) {
+                rows.add(row);
+                row = new InlineKeyboardRow();
+            }
+        }
+        rows.add(row(button("Input Manual", prefix + ":manual")));
         rows.add(row(button("Batal", "act:cancel")));
         return keyboard(rows);
     }
