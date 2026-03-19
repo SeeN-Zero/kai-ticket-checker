@@ -640,7 +640,7 @@ public class TelegramBotService {
         if (stations != null && !stations.isEmpty()) {
             for (StationService.Station station : stations) {
                 row.add(button(station.name(), prefix + ":" + station.name()));
-                if (Objects.equals(station, stations.getLast())) {
+                if (row.size() == 1 || Objects.equals(station, stations.getLast())) {
                     rows.add(row);
                     row = new InlineKeyboardRow();
                 }
@@ -650,7 +650,7 @@ public class TelegramBotService {
                 String code = COMMON_STATIONS.get(i);
                 row.add(button(code, prefix + ":" + code));
                 // End row after 2 buttons or after the last station.
-                if (row.size() == 2 || i == COMMON_STATIONS.size() - 1) {
+                if (row.size() == 1 || i == COMMON_STATIONS.size() - 1) {
                     rows.add(row);
                     row = new InlineKeyboardRow();
                 }
