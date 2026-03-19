@@ -2,6 +2,7 @@ package seen.kai.subscription.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -54,7 +55,7 @@ public class TicketSubscription {
     @Column(name = "max_price", nullable = false)
     private int maxPrice;
 
-    @OneToMany(mappedBy = "subscription", cascade = CascadeType.ALL, orphanRemoval = false)
+    @OneToMany(mappedBy = "subscription", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Setter(lombok.AccessLevel.NONE)
     private final Set<TelegramChat> telegramChats = new HashSet<>();
 

@@ -448,7 +448,7 @@ public class TelegramBotService {
                             + "Max price: " + response.maxPrice(),
                     mainMenuKeyboard()
             );
-            kaiService.checkTicketFromDatabase(chatId);
+//            kaiService.checkTicketFromDatabase(chatId);
         } catch (IllegalArgumentException e) {
             // Validation / business rule errors are shown to user.
             LOG.error("Gagal simpan ", e);
