@@ -41,7 +41,7 @@ nb-configuration.xml
 .env.local
 .playwright-profile/
 *.local.properties
-src/main/resources/application-local.properties
+src/main/resources/application-dev.properties
 
 # Local Docker overrides (do not commit)
 docker/docker-compose.local.yml
