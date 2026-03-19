@@ -59,7 +59,7 @@ public class StationService {
     private Map<String, Station> getStationsByName(String name) {
         return getAll().stream()
                 .filter(station -> station.name().equalsIgnoreCase(name))
-                .collect(Collectors.toMap(Station::code, station -> station));
+                .collect(Collectors.toMap(Station::name, station -> station));
     }
 
     public Station requireByName(String name) {

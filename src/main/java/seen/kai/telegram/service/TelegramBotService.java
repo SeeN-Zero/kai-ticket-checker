@@ -232,9 +232,9 @@ public class TelegramBotService {
     }
 
     private void handleOriginationSelection(String chatId, Integer messageId, SubscriptionDraft draft, String data) {
-        String code = data.substring(4).trim().toUpperCase(Locale.ROOT);
-        StationService.Station station = stationService.findAllStationsByName(code).orElse(null);
-        draft.setOrigination(station != null ? station.code() : code);
+        String name = data.substring(4).trim().toUpperCase(Locale.ROOT);
+        StationService.Station station = stationService.findAllStationsByName(name).orElse(null);
+        draft.setOrigination(station != null ? station.code() : null);
         draft.setState(BotState.WAITING_ARRIVAL_CITY);
         editMessage(chatId, messageId, "Pilih Stasiun Tujuan :", cityKeyboard("acity", "back:org_select"));
     }
@@ -248,9 +248,9 @@ public class TelegramBotService {
     }
 
     private void handleDestinationSelection(String chatId, Integer messageId, SubscriptionDraft draft, String data) {
-        String code = data.substring(4).trim().toUpperCase(Locale.ROOT);
-        StationService.Station station = stationService.findAllStationsByName(code).orElse(null);
-        draft.setDestination(station != null ? station.code() : code);
+        String name = data.substring(4).trim().toUpperCase(Locale.ROOT);
+        StationService.Station station = stationService.findAllStationsByName(name).orElse(null);
+        draft.setDestination(station != null ? station.code() : null);
         draft.setState(BotState.WAITING_MAX_PRICE);
         editMessage(chatId, messageId, "Pilih maksimal harga :", maxPriceKeyboard("back:dst_select"));
     }
