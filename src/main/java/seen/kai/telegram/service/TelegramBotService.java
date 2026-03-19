@@ -124,6 +124,61 @@ public class TelegramBotService {
             return;
         }
 
+        // Back from station selection to city selection.
+        if ("back:org".equals(callbackData)) {
+            SubscriptionDraft backDraft = sessions.get(chatId);
+            if (backDraft != null) {
+                backDraft.setState(BotState.WAITING_DEPARTURE_CITY);
+            }
+            editMessage(chatId, messageId, "Pilih Kota Asal :", cityKeyboard("dcity", "back:ed"));
+            return;
+        }
+
+        if ("back:dst".equals(callbackData)) {
+            SubscriptionDraft backDraft = sessions.get(chatId);
+            if (backDraft != null) {
+                backDraft.setState(BotState.WAITING_ARRIVAL_CITY);
+            }
+            editMessage(chatId, messageId, "Pilih Kota Tujuan :", cityKeyboard("acity", "back:org_select"));
+            return;
+        }
+
+        if ("back:ed".equals(callbackData)) {
+            SubscriptionDraft backDraft = sessions.get(chatId);
+            if (backDraft != null) {
+                backDraft.setState(BotState.WAITING_END_DATE);
+                editMessage(chatId, messageId, "Pilih tanggal akhir (maks 5 hari):", endDateKeyboard(backDraft.getStartDate()));
+            }
+            return;
+        }
+
+        if ("back:org_select".equals(callbackData)) {
+            SubscriptionDraft backDraft = sessions.get(chatId);
+            if (backDraft != null) {
+                backDraft.setState(BotState.WAITING_ORIGINATION);
+                editMessage(chatId, messageId, "Pilih Stasiun Keberangkatan :", stationKeyboard("org", backDraft.getDepartureStations(), "back:org"));
+            }
+            return;
+        }
+
+        if ("back:dst_select".equals(callbackData)) {
+            SubscriptionDraft backDraft = sessions.get(chatId);
+            if (backDraft != null) {
+                backDraft.setState(BotState.WAITING_DESTINATION);
+                editMessage(chatId, messageId, "Pilih Stasiun Tujuan :", stationKeyboard("dst", backDraft.getArrivalStations(), "back:dst"));
+            }
+            return;
+        }
+
+        if ("back:mp_select".equals(callbackData)) {
+            SubscriptionDraft backDraft = sessions.get(chatId);
+            if (backDraft != null) {
+                backDraft.setState(BotState.WAITING_MAX_PRICE);
+                editMessage(chatId, messageId, "Pilih maksimal harga :", maxPriceKeyboard("back:dst_select"));
+            }
+            return;
+        }
+
         // Keep a draft even if user presses buttons out of order; we validate inputs per state.
         SubscriptionDraft draft = sessions.computeIfAbsent(chatId, ignored -> new SubscriptionDraft());
 
@@ -172,7 +227,7 @@ public class TelegramBotService {
             }
             draft.setEndDate(endDate);
             draft.setState(BotState.WAITING_DEPARTURE_CITY);
-            editMessage(chatId, messageId, "Pilih Kota Asal :", cityKeyboard("dcity"));
+            editMessage(chatId, messageId, "Pilih Kota Asal :", cityKeyboard("dcity", "back:ed"));
             return;
         }
 
@@ -189,16 +244,16 @@ public class TelegramBotService {
             List<StationService.Station> stations = stationService.findStationNamesByCityName(cityName);
             draft.setDepartureStations(stations);
             draft.setState(BotState.WAITING_ORIGINATION);
-            editMessage(chatId, messageId, "Pilih Stasiun Keberangkatan :", stationKeyboard("org", stations));
+            editMessage(chatId, messageId, "Pilih Stasiun Keberangkatan :", stationKeyboard("org", stations, "back:org"));
             return;
         }
 
         // Switch origination input to manual text.
-        if ("org:manual".equals(callbackData)) {
-            draft.setState(BotState.WAITING_ORIGINATION_TEXT);
-            editMessage(chatId, messageId, "Ketik Stasiun Keberangkatan (contoh: KEBUMEN, LEMPUYANGAN, PASARSENEN).", null);
-            return;
-        }
+//        if ("org:manual".equals(callbackData)) {
+//            draft.setState(BotState.WAITING_ORIGINATION_TEXT);
+//            editMessage(chatId, messageId, "Ketik Stasiun Keberangkatan (contoh: KEBUMEN, LEMPUYANGAN, PASARSENEN).", null);
+//            return;
+//        }
 
         // Origination selection from buttons.
         if (callbackData.startsWith("org:")) {
@@ -206,7 +261,7 @@ public class TelegramBotService {
             StationService.Station station = stationService.findAllStationsByName(code).orElse(null);
             draft.setOrigination(station != null ? station.code() : code);
             draft.setState(BotState.WAITING_ARRIVAL_CITY);
-            editMessage(chatId, messageId, "Pilih Stasiun Tujuan :", cityKeyboard("acity"));
+            editMessage(chatId, messageId, "Pilih Stasiun Tujuan :", cityKeyboard("acity", "back:org_select"));
             return;
         }
 
@@ -216,16 +271,16 @@ public class TelegramBotService {
             List<StationService.Station> stations = stationService.findStationNamesByCityName(cityName);
             draft.setArrivalStations(stations);
             draft.setState(BotState.WAITING_DESTINATION);
-            editMessage(chatId, messageId, "Pilih Stasiun Tujuan :", stationKeyboard("dst", stations));
+            editMessage(chatId, messageId, "Pilih Stasiun Tujuan :", stationKeyboard("dst", stations, "back:dst"));
             return;
         }
 
         // Switch destination input to manual text.
-        if ("dst:manual".equals(callbackData)) {
-            draft.setState(BotState.WAITING_DESTINATION_TEXT);
-            editMessage(chatId, messageId, "Ketik Stasiun Tujuan (contoh: PASARSENEN, GAMBIR, LEMPUYANGAN).", null);
-            return;
-        }
+//        if ("dst:manual".equals(callbackData)) {
+//            draft.setState(BotState.WAITING_DESTINATION_TEXT);
+//            editMessage(chatId, messageId, "Ketik Stasiun Tujuan (contoh: PASARSENEN, GAMBIR, LEMPUYANGAN).", null);
+//            return;
+//        }
 
         // Destination selection from buttons.
         if (callbackData.startsWith("dst:")) {
@@ -233,7 +288,7 @@ public class TelegramBotService {
             StationService.Station station = stationService.findAllStationsByName(code).orElse(null);
             draft.setDestination(station != null ? station.code() : code);
             draft.setState(BotState.WAITING_MAX_PRICE);
-            editMessage(chatId, messageId, "Pilih maksimal harga :", maxPriceKeyboard());
+            editMessage(chatId, messageId, "Pilih maksimal harga :", maxPriceKeyboard("back:dst_select"));
             return;
         }
 
@@ -248,12 +303,12 @@ public class TelegramBotService {
             int maxPrice = parseIntSafely(callbackData.substring(3));
             // Price must be a positive integer.
             if (maxPrice <= 0) {
-                editMessage(chatId, messageId, "Maksimal harga tidak valid. Pilih tombol atau ketik angka.", maxPriceKeyboard());
+                editMessage(chatId, messageId, "Maksimal harga tidak valid. Pilih tombol atau ketik angka.", maxPriceKeyboard("back:dst_select"));
                 return;
             }
             draft.setMaxPrice(maxPrice);
             draft.setState(BotState.WAITING_CONFIRMATION);
-            editMessage(chatId, messageId, buildSummary(draft), confirmationKeyboard());
+            editMessage(chatId, messageId, buildSummary(draft), confirmationKeyboard("back:mp_select"));
             return;
         }
 
@@ -403,15 +458,14 @@ public class TelegramBotService {
 
             if (cityNames.isEmpty()) {
                 String errorMessage = String.format("%s %s %s. %s", "Nama Kota ", cityName, " tidak ditemukan di KAI.", "Ketik ulang atau pilih yang tersedia");
-                draft.setState(BotState.WAITING_DEPARTURE_CITY);
-                sendMessage(chatId, errorMessage, cityKeyboard("dcity"));
+                sendMessage(chatId, errorMessage, cityKeyboard("dcity", "back:ed"));
                 return;
             }
 
             List<StationService.Station> stations = stationService.findStationNamesByCityName(cityName);
             draft.setDepartureStations(stations);
             draft.setState(BotState.WAITING_ORIGINATION);
-            sendMessage(chatId, "Pilih Stasiun Asal:", stationKeyboard("org", stations));
+            sendMessage(chatId, "Pilih Stasiun Asal:", stationKeyboard("org", stations, "back:org"));
             return;
         }
 
@@ -431,15 +485,14 @@ public class TelegramBotService {
 
             if (cityNames.isEmpty()) {
                 String errorMessage = String.format("%s %s %s. %s", "Nama Kota ", cityName, " tidak ditemukan di KAI.", "Ketik ulang atau pilih yang tersedia");
-                draft.setState(BotState.WAITING_ARRIVAL_CITY);
-                sendMessage(chatId, errorMessage, cityKeyboard("acity"));
+                sendMessage(chatId, errorMessage, cityKeyboard("acity", "back:org_select"));
                 return;
             }
 
             List<StationService.Station> stations = stationService.findStationNamesByCityName(cityName);
-            draft.setDepartureStations(stations);
-            draft.setState(BotState.WAITING_ORIGINATION);
-            sendMessage(chatId, "Pilih Stasiun Asal:", stationKeyboard("org", stations));
+            draft.setArrivalStations(stations);
+            draft.setState(BotState.WAITING_DESTINATION);
+            sendMessage(chatId, "Pilih Stasiun Tujuan:", stationKeyboard("dst", stations, "back:dst"));
             return;
         }
 
@@ -490,7 +543,7 @@ public class TelegramBotService {
             if (value > 0) {
                 draft.setMaxPrice(value);
                 draft.setState(BotState.WAITING_CONFIRMATION);
-                sendMessage(chatId, buildSummary(draft), confirmationKeyboard());
+                sendMessage(chatId, buildSummary(draft), confirmationKeyboard("back:mp_select"));
                 return;
             }
         }
@@ -532,11 +585,11 @@ public class TelegramBotService {
             );
         } catch (IllegalArgumentException e) {
             // Validation / business rule errors are shown to user.
-            editMessage(chatId, messageId, "Gagal simpan: " + e.getMessage(), confirmationKeyboard());
+            editMessage(chatId, messageId, "Gagal simpan: " + e.getMessage(), confirmationKeyboard("back:mp_select"));
         } catch (Exception e) {
             // Unexpected errors should be logged server-side; user gets a generic message.
             LOG.error("Gagal simpan subscription dari Telegram bot", e);
-            editMessage(chatId, messageId, "Terjadi error saat simpan subscription.", confirmationKeyboard());
+            editMessage(chatId, messageId, "Terjadi error saat simpan subscription.", confirmationKeyboard("back:mp_select"));
         }
     }
 
@@ -643,7 +696,7 @@ public class TelegramBotService {
         return keyboard(rows);
     }
 
-    private InlineKeyboardMarkup cityKeyboard(String prefix) {
+    private InlineKeyboardMarkup cityKeyboard(String prefix, String backState) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         InlineKeyboardRow row = new InlineKeyboardRow();
         for (int i = 0; i < COMMON_CITIES.size(); i++) {
@@ -656,19 +709,22 @@ public class TelegramBotService {
             }
         }
         rows.add(row(button("Input Manual", prefix + ":manual")));
+        if (backState != null && !backState.isBlank()) {
+            rows.add(row(button("Kembali", backState)));
+        }
         rows.add(row(button("Batal", "act:cancel")));
         return keyboard(rows);
     }
 
     // Station selection keyboard. "prefix" controls whether buttons write org:* or dst:* callback data.
-    private InlineKeyboardMarkup stationKeyboard(String prefix, List<StationService.Station> stations) {
+    private InlineKeyboardMarkup stationKeyboard(String prefix, List<StationService.Station> stations, String backState) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         InlineKeyboardRow row = new InlineKeyboardRow();
 
         if (stations != null && !stations.isEmpty()) {
             for (StationService.Station station : stations) {
                 row.add(button(station.name(), prefix + ":" + station.name()));
-                if (row.size() == 1 || Objects.equals(station, stations.getLast())) {
+                if (row.size() == 2 || Objects.equals(station, stations.getLast())) {
                     rows.add(row);
                     row = new InlineKeyboardRow();
                 }
@@ -678,7 +734,7 @@ public class TelegramBotService {
                 String code = COMMON_STATIONS.get(i);
                 row.add(button(code, prefix + ":" + code));
                 // End row after 2 buttons or after the last station.
-                if (row.size() == 1 || i == COMMON_STATIONS.size() - 1) {
+                if (row.size() == 2 || i == COMMON_STATIONS.size() - 1) {
                     rows.add(row);
                     row = new InlineKeyboardRow();
                 }
@@ -686,26 +742,37 @@ public class TelegramBotService {
         }
 
 //        rows.add(row(button("Input Manual", prefix + ":manual")));
+        if (backState != null && !backState.isBlank()) {
+            rows.add(row(button("Kembali", backState)));
+        }
         rows.add(row(button("Batal", "act:cancel")));
         return keyboard(rows);
     }
 
     // Max price selection keyboard (preset values + manual entry).
-    private InlineKeyboardMarkup maxPriceKeyboard() {
-        return keyboard(List.of(
+    private InlineKeyboardMarkup maxPriceKeyboard(String backState) {
+        List<InlineKeyboardRow> rows = new ArrayList<>(List.of(
                 row(button("250000", "mp:250000"), button("500000", "mp:500000")),
                 row(button("750000", "mp:750000"), button("1000000", "mp:1000000")),
-                row(button("Input Manual", "mp:manual")),
-                row(button("Batal", "act:cancel"))
+                row(button("Input Manual", "mp:manual"))
         ));
+        if (backState != null && !backState.isBlank()) {
+            rows.add(row(button("Kembali", backState)));
+        }
+        rows.add(row(button("Batal", "act:cancel")));
+        return keyboard(rows);
     }
 
     // Confirmation keyboard shown before persisting the subscription.
-    private InlineKeyboardMarkup confirmationKeyboard() {
-        return keyboard(List.of(
-                row(button("Simpan", "act:save")),
-                row(button("Batal", "act:cancel"))
+    private InlineKeyboardMarkup confirmationKeyboard(String backState) {
+        List<InlineKeyboardRow> rows = new ArrayList<>(List.of(
+                row(button("Simpan", "act:save"))
         ));
+        if (backState != null && !backState.isBlank()) {
+            rows.add(row(button("Kembali", backState)));
+        }
+        rows.add(row(button("Batal", "act:cancel")));
+        return keyboard(rows);
     }
 
     // Wrap rows into the Telegram markup object.
