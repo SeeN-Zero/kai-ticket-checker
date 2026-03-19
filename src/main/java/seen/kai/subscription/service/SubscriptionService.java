@@ -40,8 +40,8 @@ public class SubscriptionService {
     public SubscriptionResponse createOrAttach(SubscriptionRequest request) {
         validate(request);
 
-        StationService.Station originationStation = stationService.requireByName(request.origination());
-        StationService.Station destinationStation = stationService.requireByName(request.destination());
+        StationService.Station originationStation = stationService.requireByCode(request.origination());
+        StationService.Station destinationStation = stationService.requireByCode(request.destination());
 
         String normalizedOrigination = originationStation.code().trim().toUpperCase(Locale.ROOT);
         String normalizedDestination = destinationStation.code().trim().toUpperCase(Locale.ROOT);
