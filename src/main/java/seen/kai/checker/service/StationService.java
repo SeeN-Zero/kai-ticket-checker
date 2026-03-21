@@ -61,10 +61,6 @@ public class StationService {
                 .collect(Collectors.toMap(Station::name, station -> station));
     }
 
-    public Station requireByName(String name) {
-        return findAllStationsByName(name).orElseThrow(() -> new IllegalArgumentException("Stasiun tidak ditemukan: " + name));
-    }
-
     public Station requireByCode(String code) {
         return findStationsByCode(code).orElseThrow(() -> new IllegalArgumentException("Kode stasiun tidak ditemukan: " + code));
     }
