@@ -91,9 +91,11 @@ Jika credential belum diisi, aplikasi tetap berjalan tetapi notifikasi Telegram 
 
 ### Properti utama
 
-- `kai.playwright.headless` (default: `false`)
-- `kai.playwright.user-data-dir` (default: `.playwright-profile`)
-- `kai.playwright.manual-wait-seconds` (default: `180`)
+- `kai.puppeteer.headless` (default: `true`)
+- `kai.puppeteer.user-data-dir` (default: `.puppeteer-profile`)
+- `kai.puppeteer.manual-wait-seconds` (default: `180`)
+- `kai.puppeteer.max-tabs` (default: `5`)
+- `kai.puppeteer.executable-path` (Optional)
 - `kai.cloudflare.max-retries` (default: `3`)
 - `kai.cloudflare.retry-delay-seconds` (default: `20`)
 - `kai.scheduler.every` (default: `30m`)

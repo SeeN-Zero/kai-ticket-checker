@@ -54,3 +54,5 @@ docker/docker-compose.local.yml
 /.playwright-profile-B/
 /.tmp/
 /src/main/resources/application-dev.properties
+/.pipe-resources-*
+/.puppeteer-profile

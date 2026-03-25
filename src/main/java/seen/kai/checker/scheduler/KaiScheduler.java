@@ -20,7 +20,7 @@ public class KaiScheduler {
     @ConfigProperty(name = "kai.scheduler.enabled", defaultValue = "true")
     boolean schedulerEnabled;
 
-    @Scheduled(every = "{kai.scheduler.every:30m}", delay = 0)
+//    @Scheduled(every = "{kai.scheduler.every:30m}", delay = 0)
     void check() {
         if (!schedulerEnabled) {
             LOG.info("Scheduler dinonaktifkan via konfigurasi (kai.scheduler.enabled=false).");

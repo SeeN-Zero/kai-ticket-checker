@@ -5,15 +5,13 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-      args:
-        BASE_IMAGE: "${KAI_BASE_IMAGE:-kai-ticket-checker-base:latest}"
     image: kai-ticket-checker:latest
     container_name: kai-ticket-checker
     environment:
       QUARKUS_HTTP_PORT: "8080"
-      KAI_PLAYWRIGHT_HEADLESS: "${KAI_PLAYWRIGHT_HEADLESS:-false}"
-      PLAYWRIGHT_BROWSERS_PATH: "/ms-playwright"
-      KAI_PLAYWRIGHT_USER_DATA_DIR: "/profiles/default"
+      KAI_PUPPETEER_HEADLESS: "${KAI_PUPPETEER_HEADLESS:-true}"
+      KAI_PUPPETEER_USER_DATA_DIR: "/profiles/default"
+      KAI_PUPPETEER_EXECUTABLE_PATH: "/usr/bin/chromium-browser"
       KAI_TELEGRAM_BOT_TOKEN: "${KAI_TELEGRAM_BOT_TOKEN}"
       KAI_SUBSCRIPTION_PASSWORD: "${KAI_SUBSCRIPTION_PASSWORD:-}"
       KAI_SCHEDULER_EVERY: "${KAI_SCHEDULER_EVERY:-30m}"
@@ -23,11 +21,9 @@ services:
       KAI_DB_JDBC_URL: "${KAI_DB_JDBC_URL:-jdbc:postgresql://host.docker.internal:5432/kai_ticket_checker}"
     volumes:
       - kai-profile:/profiles/default
-      - kai-playwright-browsers:/ms-playwright
     ports:
       - "8081:8080"
     restart: unless-stopped
 
 volumes:
   kai-profile:
-  kai-playwright-browsers:

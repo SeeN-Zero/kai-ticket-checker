@@ -4,7 +4,6 @@ pipeline {
     environment {
         IMAGE_NAME = "kai-ticket-checker"
         IMAGE_TAG  = "latest"
-        BASE_IMAGE = "kai-ticket-checker-base:latest"
         DOCKER_DIR = "docker"
 
         SERVER_USER        = 'arranusa'
@@ -43,14 +42,13 @@ pipeline {
                 sshagent(['ssh-g14-credentials']) {
                     script {
                         echo "Menyiapkan direktori di server: ${DEPLOY_PATH}"
-                        sh "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'mkdir -p ${DEPLOY_PATH}/target ${DEPLOY_PATH}/${DOCKER_DIR}/base'"
+                        sh "ssh -p ${SERVER_PORT} -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} 'mkdir -p ${DEPLOY_PATH}/target ${DEPLOY_PATH}/${DOCKER_DIR}'"
 
                         echo "Mengirim file ke server..."
                         // Kirim file yang dibutuhkan untuk build docker
                         sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no target/*-runner.jar ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/target/"
                         sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
                         sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/docker-compose.yml ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
-                        sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/base/Dockerfile ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/base/"
                         sh "scp -P ${SERVER_PORT} -o StrictHostKeyChecking=no ${DOCKER_DIR}/deploy.sh ${SERVER_USER}@${SERVER_IP}:${DEPLOY_PATH}/${DOCKER_DIR}/"
 
                         echo "Menjalankan script deploy di server..."

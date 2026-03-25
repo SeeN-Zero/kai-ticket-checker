@@ -2,12 +2,16 @@ package seen.kai.checker.service;
 
 import io.quarkus.cache.CacheResult;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
 import jakarta.json.JsonValue;
+import jakarta.transaction.Transactional;
 import org.jboss.logging.Logger;
+import seen.kai.checker.entity.StationEntity;
+import seen.kai.checker.repository.StationRepository;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -25,6 +29,9 @@ import java.util.stream.Collectors;
 public class StationService {
     private static final Logger LOG = Logger.getLogger(StationService.class);
     private static final URI STATIONS_URI = URI.create("https://booking.kai.id/api/stations2");
+
+    @Inject
+    StationRepository stationRepository;
 
     public StationService() {
     }
@@ -88,8 +95,8 @@ public class StationService {
 
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) {
-                LOG.warnf("Gagal fetch stations KAI. status=%d", status);
-                return List.of();
+                LOG.warnf("Gagal fetch stations KAI. status=%d. Mencoba ambil dari database...", status);
+                return getAllFromDatabase();
             }
 
             try (InputStream in = connection.getInputStream(); JsonReader reader = Json.createReader(in)) {
@@ -103,18 +110,18 @@ public class StationService {
                         if (value.getValueType() == JsonValue.ValueType.ARRAY) {
                             stationsArray = value.asJsonArray();
                         } else {
-                            LOG.warn("Format stations KAI tidak sesuai (value bukan array).");
-                            return List.of();
+                            LOG.warn("Format stations KAI tidak sesuai (value bukan array). Mencoba ambil dari database...");
+                            return getAllFromDatabase();
                         }
                     } else {
-                        LOG.warn("Format stations KAI tidak sesuai (objek tanpa value).");
-                        return List.of();
+                        LOG.warn("Format stations KAI tidak sesuai (objek tanpa value). Mencoba ambil dari database...");
+                        return getAllFromDatabase();
                     }
                 } else if (root.getValueType() == JsonValue.ValueType.ARRAY) {
                     stationsArray = root.asJsonArray();
                 } else {
-                    LOG.warn("Format stations KAI tidak sesuai (bukan array atau objek).");
-                    return List.of();
+                    LOG.warn("Format stations KAI tidak sesuai (bukan array atau objek). Mencoba ambil dari database...");
+                    return getAllFromDatabase();
                 }
 
                 Set<Station> stations = new HashSet<>();
@@ -130,11 +137,56 @@ public class StationService {
                     }
                 }
                 LOG.infof("Loaded %d stations from KAI.", stations.size());
-                return List.copyOf(stations);
+                
+                List<Station> stationList = List.copyOf(stations);
+                syncToDatabase(stationList);
+                return stationList;
             }
         } catch (Exception e) {
-            LOG.warn("Gagal fetch stations KAI.", e);
+            LOG.warn("Gagal fetch stations KAI. Mencoba ambil dari database...", e);
+            return getAllFromDatabase();
+        }
+    }
+
+    private List<Station> getAllFromDatabase() {
+        try {
+            List<StationEntity> entities = stationRepository.listAll();
+            if (entities.isEmpty()) {
+                LOG.warn("Database stasiun kosong.");
+                return List.of();
+            }
+            LOG.infof("Loaded %d stations from database fallback.", entities.size());
+            return entities.stream()
+                    .map(e -> new Station(e.getCode(), e.getName(), e.getCity(), e.getCityname()))
+                    .toList();
+        } catch (Exception e) {
+            LOG.error("Gagal mengambil stasiun dari database.", e);
             return List.of();
+        }
+    }
+
+    @Transactional
+    public void syncToDatabase(List<Station> stations) {
+        if (stations == null || stations.isEmpty()) {
+            return;
+        }
+        try {
+            for (Station s : stations) {
+                if (s.code() == null || s.code().isBlank()) continue;
+                
+                StationEntity entity = stationRepository.findById(s.code());
+                if (entity == null) {
+                    entity = new StationEntity();
+                    entity.setCode(s.code());
+                }
+                entity.setName(s.name());
+                entity.setCity(s.city());
+                entity.setCityname(s.cityname());
+                stationRepository.persist(entity);
+            }
+            LOG.infof("Berhasil sinkronisasi %d stasiun ke database.", stations.size());
+        } catch (Exception e) {
+            LOG.error("Gagal sinkronisasi stasiun ke database.", e);
         }
     }
 
