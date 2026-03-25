@@ -239,7 +239,7 @@ public class TelegramBotService {
         StationService.Station station = stationService.findAllStationsByName(name).orElse(null);
         draft.setOrigination(station != null ? station.code() : null);
         draft.setState(BotState.WAITING_ARRIVAL_CITY);
-        editMessage(chatId, messageId, "Pilih Stasiun Tujuan :", cityKeyboard("acity", "back:org_select"));
+        editMessage(chatId, messageId, "Pilih Kota Tujuan :", cityKeyboard("acity", "back:org_select"));
     }
 
     private void handleArrivalCitySelection(String chatId, Integer messageId, SubscriptionDraft draft, String data) {
