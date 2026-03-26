@@ -243,6 +243,11 @@ public class TelegramBotService {
     }
 
     private void handleArrivalCitySelection(String chatId, Integer messageId, SubscriptionDraft draft, String data) {
+        if ("acity:manual".equals(data)) {
+            draft.setState(BotState.WAITING_ARRIVAL_CITY_TEXT);
+            editMessage(chatId, messageId, "Ketik Kota Tujuan (contoh: JAKARTA).", null);
+            return;
+        }
         String cityName = data.substring(6).trim().toUpperCase(Locale.ROOT);
         List<StationService.Station> stations = stationService.findStationNamesByCityName(cityName);
         draft.setArrivalStations(stations);
